@@ -4,8 +4,8 @@
 Your AWS SES is configured and ready, but you need to verify email addresses before sending notifications.
 
 ## ✅ Current Configuration Status
-- **SMTP Username**: `AKIA253CTSFIYSO4PB7H` ✅
-- **SMTP Password**: `BLt4o+IvQ6Iqq4y7S+4xelEX4ijzNh2Ch60baKc7mAhb` ✅
+- **SMTP Username**: `AKIA***************` ✅ (configured in .env)
+- **SMTP Password**: `****************` ✅ (configured in .env)
 - **SMTP Host**: `email-smtp.ap-south-1.amazonaws.com` ✅
 - **SMTP Port**: `587` ✅
 - **Region**: `ap-south-1` (Asia Pacific - Mumbai) ✅
