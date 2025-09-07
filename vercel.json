@@ -1,22 +1,21 @@
 {
   "version": 2,
-  "framework": "nextjs",
-  "buildCommand": "cd frontend && npm install && npm run build",
-  "installCommand": "cd frontend && npm install",
+  "buildCommand": "npm install --prefix frontend && npm run build --prefix frontend",
+  "installCommand": "npm install --prefix frontend",
   "outputDirectory": "frontend/.next",
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://your-backend-domain"
+    "NEXT_PUBLIC_API_URL": "${NEXT_PUBLIC_API_URL}"
   },
   "rewrites": [
-    { "source": "/chat", "destination": "https://your-backend-domain/chat" },
-    { "source": "/chat/stream", "destination": "https://your-backend-domain/chat/stream" },
-    { "source": "/learning-plan", "destination": "https://your-backend-domain/learning-plan" },
-    { "source": "/learning-plan/:path*", "destination": "https://your-backend-domain/learning-plan/:path*" },
-    { "source": "/learning-plans", "destination": "https://your-backend-domain/learning-plans" },
-    { "source": "/learning-plans/:path*", "destination": "https://your-backend-domain/learning-plans/:path*" },
-    { "source": "/teaching/:path*", "destination": "https://your-backend-domain/teaching/:path*" },
-    { "source": "/notifications/:path*", "destination": "https://your-backend-domain/notifications/:path*" },
-    { "source": "/users/:path*", "destination": "https://your-backend-domain/users/:path*" }
+    { "source": "/chat", "destination": "${NEXT_PUBLIC_API_URL}/chat" },
+    { "source": "/chat/stream", "destination": "${NEXT_PUBLIC_API_URL}/chat/stream" },
+    { "source": "/learning-plan", "destination": "${NEXT_PUBLIC_API_API_URL}/learning-plan" },
+    { "source": "/learning-plan/:path*", "destination": "${NEXT_PUBLIC_API_URL}/learning-plan/:path*" },
+    { "source": "/learning-plans", "destination": "${NEXT_PUBLIC_API_URL}/learning-plans" },
+    { "source": "/learning-plans/:path*", "destination": "${NEXT_PUBLIC_API_URL}/learning-plans/:path*" },
+    { "source": "/teaching/:path*", "destination": "${NEXT_PUBLIC_API_URL}/teaching/:path*" },
+    { "source": "/notifications/:path*", "destination": "${NEXT_PUBLIC_API_URL}/notifications/:path*" },
+    { "source": "/users/:path*", "destination": "${NEXT_PUBLIC_API_URL}/users/:path*" }
   ],
   "headers": [
     {
