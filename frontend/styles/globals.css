@@ -1,0 +1,253 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* VEDYA Custom CSS - Knowledge Power Digital Illustrations About Science Theme */
+
+:root {
+  /* Color Theme Variables */
+  --vedya-pink: #F27ECA;
+  --vedya-purple: #8857F2;
+  --vedya-dark-purple: #6C45BF;
+  --vedya-yellow: #F2E30F;
+  --vedya-orange: #F2B90F;
+}
+
+/* Color Theme Swatches in Hex */
+.Knowledge-Power:-Digital-Illustrations-About-Science-1-hex { color: #F27ECA; }
+.Knowledge-Power:-Digital-Illustrations-About-Science-2-hex { color: #8857F2; }
+.Knowledge-Power:-Digital-Illustrations-About-Science-3-hex { color: #6C45BF; }
+.Knowledge-Power:-Digital-Illustrations-About-Science-4-hex { color: #F2E30F; }
+.Knowledge-Power:-Digital-Illustrations-About-Science-5-hex { color: #F2B90F; }
+
+/* Color Theme Swatches in RGBA */
+.Knowledge-Power:-Digital-Illustrations-About-Science-1-rgba { color: rgba(242, 125, 201, 1); }
+.Knowledge-Power:-Digital-Illustrations-About-Science-2-rgba { color: rgba(136, 87, 242, 1); }
+.Knowledge-Power:-Digital-Illustrations-About-Science-3-rgba { color: rgba(107, 68, 191, 1); }
+.Knowledge-Power:-Digital-Illustrations-About-Science-4-rgba { color: rgba(242, 227, 14, 1); }
+.Knowledge-Power:-Digital-Illustrations-About-Science-5-rgba { color: rgba(242, 185, 14, 1); }
+
+/* Color Theme Swatches in HSLA */
+.Knowledge-Power:-Digital-Illustrations-About-Science-1-hsla { color: hsla(320, 82, 72, 1); }
+.Knowledge-Power:-Digital-Illustrations-About-Science-2-hsla { color: hsla(258, 85, 64, 1); }
+.Knowledge-Power:-Digital-Illustrations-About-Science-3-hsla { color: hsla(258, 48, 51, 1); }
+.Knowledge-Power:-Digital-Illustrations-About-Science-4-hsla { color: hsla(56, 89, 50, 1); }
+.Knowledge-Power:-Digital-Illustrations-About-Science-5-hsla { color: hsla(45, 89, 50, 1); }
+
+/* Global Styles */
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold;
+  }
+}
+
+/* Component Styles */
+@layer components {
+  .btn-primary {
+    @apply px-6 py-3 text-white rounded-lg font-medium transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-opacity-50;
+    background-color: #8857F2;
+  }
+  
+  .btn-primary:hover {
+    background-color: #6C45BF;
+  }
+  
+  .btn-primary:focus {
+    --tw-ring-color: #8857F2;
+  }
+  
+  .btn-secondary {
+    @apply px-6 py-3 bg-white border-2 rounded-lg font-medium transition-all duration-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-opacity-50;
+    color: #8857F2;
+    border-color: #8857F2;
+  }
+  
+  .btn-secondary:hover {
+    background-color: #8857F2;
+  }
+  
+  .btn-secondary:focus {
+    --tw-ring-color: #8857F2;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-lg p-6 transition-all duration-200 hover:shadow-xl hover:scale-[1.02];
+  }
+  
+  .gradient-bg {
+    background: linear-gradient(to bottom right, #8857F2, #F27ECA, #F2B90F);
+  }
+  
+  .gradient-text {
+    background: linear-gradient(to right, #8857F2, #F27ECA);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .learning-card {
+    @apply bg-white rounded-2xl shadow-lg p-8 transition-all duration-300 hover:shadow-2xl hover:transform hover:scale-[1.02];
+    border-left: 4px solid #8857F2;
+  }
+  
+  .chat-bubble {
+    @apply max-w-xs lg:max-w-md px-4 py-2 rounded-2xl;
+  }
+  
+  .chat-bubble.user {
+    @apply text-white ml-auto;
+    background-color: #8857F2;
+  }
+  
+  .chat-bubble.ai {
+    @apply bg-gray-100 text-gray-800;
+  }
+}
+
+/* Utility Classes */
+@layer utilities {
+  .text-vedya-1 { color: #F27ECA; }
+  .text-vedya-2 { color: #8857F2; }
+  .text-vedya-3 { color: #6C45BF; }
+  .text-vedya-4 { color: #F2E30F; }
+  .text-vedya-5 { color: #F2B90F; }
+  
+  /* Named color utilities for easier use */
+  .text-vedya-pink { color: #F27ECA; }
+  .text-vedya-purple { color: #8857F2; }
+  .text-vedya-darkPurple { color: #6C45BF; }
+  .text-vedya-yellow { color: #F2E30F; }
+  .text-vedya-orange { color: #F2B90F; }
+  
+  .bg-vedya-1 { background-color: #F27ECA; }
+  .bg-vedya-2 { background-color: #8857F2; }
+  .bg-vedya-3 { background-color: #6C45BF; }
+  .bg-vedya-4 { background-color: #F2E30F; }
+  .bg-vedya-5 { background-color: #F2B90F; }
+  
+  /* Named background utilities */
+  .bg-vedya-pink { background-color: #F27ECA; }
+  .bg-vedya-purple { background-color: #8857F2; }
+  .bg-vedya-darkPurple { background-color: #6C45BF; }
+  .bg-vedya-yellow { background-color: #F2E30F; }
+  .bg-vedya-orange { background-color: #F2B90F; }
+  
+  .border-vedya-1 { border-color: #F27ECA; }
+  .border-vedya-2 { border-color: #8857F2; }
+  .border-vedya-3 { border-color: #6C45BF; }
+  .border-vedya-4 { border-color: #F2E30F; }
+  .border-vedya-5 { border-color: #F2B90F; }
+  
+  /* Named border utilities */
+  .border-vedya-pink { border-color: #F27ECA; }
+  .border-vedya-purple { border-color: #8857F2; }
+  .border-vedya-darkPurple { border-color: #6C45BF; }
+  .border-vedya-yellow { border-color: #F2E30F; }
+  .border-vedya-orange { border-color: #F2B90F; }
+  
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .animate-bounce-subtle {
+    animation: bounce 2s infinite;
+  }
+}
+
+/* Custom Animations */
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(136, 87, 242, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(136, 87, 242, 0.8);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33% { transform: translateY(-10px) rotate(1deg); }
+  66% { transform: translateY(5px) rotate(-1deg); }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+.glow-animation {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fadeIn 1s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.6s ease-out;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+/* Dot pattern background */
+.bg-dot-pattern {
+  background-image: radial-gradient(circle, rgba(136, 87, 242, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* White gradient text for footer */
+.gradient-text-white {
+  background: linear-gradient(135deg, #ffffff, #e5e7eb);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Loading Spinner */
+.spinner {
+  @apply animate-spin rounded-full h-8 w-8 border-b-2;
+  border-bottom-color: #8857F2;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .card {
+    @apply p-4;
+  }
+  
+  .learning-card {
+    @apply p-6;
+  }
+}
+
+/* Dark Mode Support (Future Implementation) */
+@media (prefers-color-scheme: dark) {
+  .dark-mode-ready {
+    /* Dark mode styles will go here */
+  }
+}

@@ -1,0 +1,88 @@
+# VEDYA Agent System Requirements
+# Python dependencies for the AI-powered education platform
+
+# Core Python packages
+asyncio>=3.4.3
+dataclasses>=0.8  # For Python < 3.7 compatibility
+uuid>=1.30
+logging>=0.4.9.6
+datetime>=4.3
+enum34>=1.1.10  # For Python < 3.4 compatibility
+typing>=3.7.4
+typing-extensions>=4.5.0
+
+# LangChain/LangGraph packages (Primary Framework)
+langchain>=0.1.0
+langchain-core>=0.1.0
+langchain-openai>=0.0.5
+langchain-anthropic>=0.1.0
+langchain-community>=0.0.10
+langchain-text-splitters>=0.0.1
+langgraph>=0.0.20
+langsmith>=0.0.30
+
+# AI/ML packages
+openai>=1.0.0
+anthropic>=0.8.0
+numpy>=1.21.0
+pandas>=1.3.0
+scikit-learn>=1.0.0
+
+# Pydantic for structured outputs
+pydantic>=2.0.0
+pydantic[email]>=2.0.0
+
+# Database packages
+psycopg2-binary>=2.9.0  # PostgreSQL adapter
+asyncpg>=0.27.0  # Async PostgreSQL
+sqlalchemy>=1.4.0
+alembic>=1.8.0  # Database migrations
+
+# Vector database packages
+pgvector>=0.1.0  # PostgreSQL vector extension
+qdrant-client>=1.0.0  # Alternative vector DB
+sentence-transformers>=2.2.0  # For embeddings
+
+# Web framework packages (if needed for API)
+fastapi>=0.85.0
+uvicorn>=0.18.0
+pydantic>=1.10.0
+
+# Async packages
+aiohttp>=3.8.0
+asyncio-mqtt>=0.11.0
+
+# Utility packages
+python-dotenv>=0.19.0
+pyyaml>=6.0
+requests>=2.28.0
+beautifulsoup4>=4.11.0  # For content scraping
+lxml>=4.9.0
+
+# Testing packages (optional)
+pytest>=7.0.0
+pytest-asyncio>=0.20.0
+pytest-mock>=3.8.0
+
+# Monitoring and logging
+structlog>=22.0.0
+prometheus-client>=0.15.0
+
+# Email packages
+sendgrid>=6.9.0
+smtplib2>=0.2.1
+boto3>=1.26.0  # AWS SDK for SES verification
+
+# Security packages
+cryptography>=38.0.0
+bcrypt>=4.0.0
+
+# Queue/messaging packages
+celery>=5.2.0
+redis>=4.3.0
+
+# Development packages
+black>=22.0.0  # Code formatting
+flake8>=5.0.0  # Linting
+mypy>=0.991  # Type checking
+pre-commit>=2.20.0  # Git hooks

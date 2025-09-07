@@ -1,0 +1,40 @@
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.typing-animation .cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background-color: currentColor;
+  margin-left: 2px;
+  animation: blink 1s step-end infinite;
+}
+
+/* Add smooth transitions for text changes */
+.ai-message-content {
+  transition: opacity 0.1s ease;
+}
+
+/* Custom styling for the blinking cursor */
+.cursor {
+  display: inline-block;
+  width: 0.5em;
+  height: 1.2em;
+  background-color: currentColor;
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
+/* Optional: Add a slight fade-in effect for each new message */
+.message-appear {
+  opacity: 0;
+  animation: fadeIn 0.3s forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
