@@ -9,7 +9,7 @@
   "rewrites": [
     { "source": "/chat", "destination": "${NEXT_PUBLIC_API_URL}/chat" },
     { "source": "/chat/stream", "destination": "${NEXT_PUBLIC_API_URL}/chat/stream" },
-    { "source": "/learning-plan", "destination": "${NEXT_PUBLIC_API_API_URL}/learning-plan" },
+  { "source": "/learning-plan", "destination": "${NEXT_PUBLIC_API_URL}/learning-plan" },
     { "source": "/learning-plan/:path*", "destination": "${NEXT_PUBLIC_API_URL}/learning-plan/:path*" },
     { "source": "/learning-plans", "destination": "${NEXT_PUBLIC_API_URL}/learning-plans" },
     { "source": "/learning-plans/:path*", "destination": "${NEXT_PUBLIC_API_URL}/learning-plans/:path*" },
