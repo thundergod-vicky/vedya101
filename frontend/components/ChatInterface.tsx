@@ -28,7 +28,7 @@ export default function ChatInterface({ isOpen, onClose }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: 'Hi there! 👋 Welcome to VEDYA. I\'m your AI learning assistant. What would you like to learn today?',
+      content: "Hi there! Welcome to VEDYA. I'm your AI learning assistant. What would you like to learn today?",
       sender: 'ai',
       timestamp: new Date(),
       type: 'text'
@@ -84,7 +84,7 @@ export default function ChatInterface({ isOpen, onClose }: ChatInterfaceProps) {
     try {
       console.log('🚀 Making streaming API request to:', API_ENDPOINTS.chatStream)
       console.log('📤 Sending message:', currentInput)
-      
+
       const response = await fetch(API_ENDPOINTS.chatStream, {
         method: 'POST',
         headers: {
@@ -120,7 +120,7 @@ export default function ChatInterface({ isOpen, onClose }: ChatInterfaceProps) {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6))
-              
+
               if (data.type === 'metadata') {
                 newSessionId = data.session_id
                 if (!sessionId) {
@@ -134,10 +134,10 @@ export default function ChatInterface({ isOpen, onClose }: ChatInterfaceProps) {
                   // Otherwise add the new content to our accumulated content
                   accumulatedContent += data.content;
                 }
-                
+
                 // Update the loading message with accumulated content
-                setMessages(prev => prev.map(msg => 
-                  msg.id === loadingMessageId 
+                setMessages(prev => prev.map(msg =>
+                  msg.id === loadingMessageId
                     ? { ...msg, content: accumulatedContent, type: 'text' }
                     : msg
                 ))
@@ -145,8 +145,8 @@ export default function ChatInterface({ isOpen, onClose }: ChatInterfaceProps) {
                 finalMetadata = data.metadata
               } else if (data.type === 'complete') {
                 // Streaming complete - add final metadata to the message
-                setMessages(prev => prev.map(msg => 
-                  msg.id === loadingMessageId 
+                setMessages(prev => prev.map(msg =>
+                  msg.id === loadingMessageId
                     ? { ...msg, content: accumulatedContent, type: 'text', metadata: finalMetadata }
                     : msg
                 ))
@@ -160,10 +160,10 @@ export default function ChatInterface({ isOpen, onClose }: ChatInterfaceProps) {
           }
         }
       }
-      
+
     } catch (error) {
       console.error('❌ Error with streaming:', error)
-      
+
       // Fallback to regular API if streaming fails
       try {
         const response = await fetch(API_ENDPOINTS.chat, {
@@ -179,12 +179,12 @@ export default function ChatInterface({ isOpen, onClose }: ChatInterfaceProps) {
 
         if (response.ok) {
           const data = await response.json()
-          setMessages(prev => prev.map(msg => 
-            msg.id === loadingMessageId 
+          setMessages(prev => prev.map(msg =>
+            msg.id === loadingMessageId
               ? { ...msg, content: data.response, type: 'text' }
               : msg
           ))
-          
+
           if (data.session_id && !sessionId) {
             setSessionId(data.session_id)
           }
@@ -193,7 +193,7 @@ export default function ChatInterface({ isOpen, onClose }: ChatInterfaceProps) {
         }
       } catch (fallbackError) {
         console.error('❌ Fallback API also failed:', fallbackError)
-        
+
         // Final fallback to mock response
         const aiResponse: Message = {
           id: (Date.now() + 1).toString(),
@@ -211,29 +211,29 @@ export default function ChatInterface({ isOpen, onClose }: ChatInterfaceProps) {
 
   const generateAIResponse = (userInput: string): string => {
     const input = userInput.toLowerCase()
-    
+
     if (input.includes('learn') || input.includes('study')) {
-      return "That's fantastic! 🎓 I can help you create a personalized learning plan. What subject or topic interests you most? Whether it's programming, mathematics, science, languages, or something else entirely, I'll design a curriculum that matches your learning style and goals."
+      return "That's fantastic! I can help you create a personalized learning plan. What subject or topic interests you most? Whether it's programming, mathematics, science, languages, or something else entirely, I'll design a curriculum that matches your learning style and goals."
     }
-    
+
     if (input.includes('ai') || input.includes('artificial intelligence')) {
       return "Artificial Intelligence is an exciting field! 🤖 I can guide you through:\n\n• Machine Learning fundamentals\n• Neural Networks and Deep Learning\n• Natural Language Processing\n• Computer Vision\n• AI Ethics and Applications\n\nWhat aspect of AI would you like to explore first?"
     }
-    
+
     if (input.includes('programming') || input.includes('coding')) {
       return "Great choice! 💻 Programming opens up endless possibilities. I can help you with:\n\n• Python (beginner-friendly)\n• JavaScript (web development)\n• Java (enterprise applications)\n• C++ (systems programming)\n• And many more!\n\nWhat's your experience level, and what type of projects interest you?"
     }
-    
+
     if (input.includes('math') || input.includes('mathematics')) {
       return "Mathematics is the foundation of logical thinking! 📐 I can assist with:\n\n• Algebra and Calculus\n• Statistics and Probability\n• Linear Algebra\n• Discrete Mathematics\n• Applied Mathematics\n\nWhat specific area would you like to focus on?"
     }
-    
+
     return "I understand you're interested in learning! 🌟 To provide you with the best personalized experience, could you tell me more about:\n\n• Your current knowledge level\n• Specific topics you're curious about\n• Your preferred learning style (visual, hands-on, reading, etc.)\n• Your learning goals and timeline\n\nThis will help me create the perfect learning path for you!"
   }
 
   const handleActionButton = (actionType: string, planId?: string) => {
     console.log('Action button clicked:', actionType, planId)
-    
+
     if (actionType === 'view_plan') {
       // Navigate to the dashboard to view the learning plan
       window.location.href = '/dashboard'
@@ -284,14 +284,14 @@ export default function ChatInterface({ isOpen, onClose }: ChatInterfaceProps) {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map((message) => (
-            <MessageBubble 
-              key={message.id} 
-              message={message} 
+            <MessageBubble
+              key={message.id}
+              message={message}
               userImageUrl={user?.imageUrl}
               onActionClick={handleActionButton}
             />
           ))}
-          
+
           {isLoading && (
             <div className="flex justify-start">
               <div className="bg-gray-100 rounded-2xl p-4 max-w-xs">
@@ -366,16 +366,15 @@ function MessageBubble({ message, userImageUrl, onActionClick }: MessageBubblePr
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`flex max-w-[70%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-end space-x-2`}>
         {/* Avatar */}
-        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm overflow-hidden ${
-          isUser 
-            ? 'bg-vedya-purple text-white' 
-            : 'bg-gradient-to-br from-vedya-pink to-vedya-orange text-white'
-        }`}>
+        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm overflow-hidden ${isUser
+          ? 'bg-vedya-purple text-white'
+          : 'bg-gradient-to-br from-vedya-pink to-vedya-orange text-white'
+          }`}>
           {isUser ? (
             userImageUrl ? (
-              <img 
-                src={userImageUrl} 
-                alt="User" 
+              <img
+                src={userImageUrl}
+                alt="User"
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -384,18 +383,17 @@ function MessageBubble({ message, userImageUrl, onActionClick }: MessageBubblePr
           ) : (
             <div className="w-8 h-8 bg-gradient-to-br from-vedya-pink to-vedya-orange rounded-full flex items-center justify-center">
               <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12,2A2,2 0 0,1 14,4C14,4.74 13.6,5.39 13,5.73V7H14A7,7 0 0,1 21,14H22A1,1 0 0,1 23,15V18A1,1 0 0,1 22,19H21V20A2,2 0 0,1 19,22H5A2,2 0 0,1 3,20V19H2A1,1 0 0,1 1,18V15A1,1 0 0,1 2,14H3A7,7 0 0,1 10,7H11V5.73C10.4,5.39 10,4.74 10,4A2,2 0 0,1 12,2M7.5,13A2.5,2.5 0 0,0 5,15.5A2.5,2.5 0 0,0 7.5,18A2.5,2.5 0 0,0 10,15.5A2.5,2.5 0 0,0 7.5,13M16.5,13A2.5,2.5 0 0,0 14,15.5A2.5,2.5 0 0,0 16.5,18A2.5,2.5 0 0,0 19,15.5A2.5,2.5 0 0,0 16.5,13Z"/>
+                <path d="M12,2A2,2 0 0,1 14,4C14,4.74 13.6,5.39 13,5.73V7H14A7,7 0 0,1 21,14H22A1,1 0 0,1 23,15V18A1,1 0 0,1 22,19H21V20A2,2 0 0,1 19,22H5A2,2 0 0,1 3,20V19H2A1,1 0 0,1 1,18V15A1,1 0 0,1 2,14H3A7,7 0 0,1 10,7H11V5.73C10.4,5.39 10,4.74 10,4A2,2 0 0,1 12,2M7.5,13A2.5,2.5 0 0,0 5,15.5A2.5,2.5 0 0,0 7.5,18A2.5,2.5 0 0,0 10,15.5A2.5,2.5 0 0,0 7.5,13M16.5,13A2.5,2.5 0 0,0 14,15.5A2.5,2.5 0 0,0 16.5,18A2.5,2.5 0 0,0 19,15.5A2.5,2.5 0 0,0 16.5,13Z" />
               </svg>
             </div>
           )}
         </div>
 
         {/* Message */}
-        <div className={`rounded-2xl p-4 ${
-          isUser 
-            ? 'bg-vedya-purple text-white ml-2' 
-            : 'bg-gray-100 text-gray-900 mr-2'
-        }`}>
+        <div className={`rounded-2xl p-4 ${isUser
+          ? 'bg-vedya-purple text-white ml-2'
+          : 'bg-gray-100 text-gray-900 mr-2'
+          }`}>
           <div className="text-sm leading-relaxed whitespace-pre-line">
             {message.type === 'loading' && message.content === '' ? (
               <div className="flex space-x-1">
@@ -407,7 +405,7 @@ function MessageBubble({ message, userImageUrl, onActionClick }: MessageBubblePr
               message.content
             )}
           </div>
-          
+
           {/* Action Button */}
           {message.metadata?.show_action_button && !isUser && onActionClick && message.metadata.action_type && (
             <div className="mt-3">
@@ -419,11 +417,10 @@ function MessageBubble({ message, userImageUrl, onActionClick }: MessageBubblePr
               </button>
             </div>
           )}
-          
+
           {message.type !== 'loading' && (
-            <div className={`text-xs mt-2 opacity-70 ${
-              isUser ? 'text-white/70' : 'text-gray-500'
-            }`}>
+            <div className={`text-xs mt-2 opacity-70 ${isUser ? 'text-white/70' : 'text-gray-500'
+              }`}>
               {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
           )}

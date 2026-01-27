@@ -1,3 +1,5 @@
+import 'bootstrap-icons/font/bootstrap-icons.css'
+
 export default function Footer() {
   const currentYear = new Date().getFullYear()
 
@@ -33,7 +35,7 @@ export default function Footer() {
   }
 
   return (
-    <footer className="bg-gray-900 text-white">
+    <footer id="contact" className="bg-gray-900 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Main Footer Content */}
         <div className="py-16">
@@ -47,11 +49,11 @@ export default function Footer() {
                 </p>
               </div>
               <p className="text-gray-300 leading-relaxed mb-6">
-                Experience the future of education with our AI-powered platform. 
-                Personalized learning paths, intelligent assessments, and real-time 
+                Experience the future of education with our AI-powered platform.
+                Personalized learning paths, intelligent assessments, and real-time
                 progress tracking make learning more effective and engaging.
               </p>
-              
+
               {/* Newsletter Signup */}
               <div className="mb-6">
                 <h4 className="text-lg font-semibold mb-3">Stay Updated</h4>
@@ -69,11 +71,11 @@ export default function Footer() {
 
               {/* Social Links */}
               <div className="flex space-x-4">
-                <SocialLink href="#" icon="🐦" label="Twitter" />
-                <SocialLink href="#" icon="📘" label="Facebook" />
-                <SocialLink href="#" icon="💼" label="LinkedIn" />
-                <SocialLink href="#" icon="📸" label="Instagram" />
-                <SocialLink href="#" icon="🎥" label="YouTube" />
+                <SocialLink href="#" icon={<i className="bi bi-twitter"></i>} label="Twitter" />
+                <SocialLink href="#" icon={<i className="bi bi-facebook"></i>} label="Facebook" />
+                <SocialLink href="#" icon={<i className="bi bi-linkedin"></i>} label="LinkedIn" />
+                <SocialLink href="#" icon={<i className="bi bi-instagram"></i>} label="Instagram" />
+                <SocialLink href="#" icon={<i className="bi bi-youtube"></i>} label="YouTube" />
               </div>
             </div>
 
@@ -134,29 +136,17 @@ export default function Footer() {
             <h4 className="text-xl font-semibold mb-6 text-center">Why Choose VEDYA?</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <FeatureHighlight
-                icon={
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                }
+                icon={<i className="bi bi-cpu-fill text-4xl"></i>}
                 title="AI-Powered Learning"
                 description="Adaptive algorithms that personalize your educational journey"
               />
               <FeatureHighlight
-                icon={
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                }
+                icon={<i className="bi bi-graph-up-arrow text-4xl"></i>}
                 title="Real-time Analytics"
                 description="Track your progress with detailed insights and recommendations"
               />
               <FeatureHighlight
-                icon={
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                }
+                icon={<i className="bi bi-bullseye text-4xl"></i>}
                 title="Goal-Oriented"
                 description="Structured learning paths designed to achieve your objectives"
               />
@@ -183,9 +173,13 @@ export default function Footer() {
                 ))}
               </div>
             </div>
-            <div className="mt-4 md:mt-0">
+            <div className="mt-4 md:mt-0 flex items-center space-x-2">
               <p className="text-gray-400 text-sm">
-                Made with ❤️ for learners worldwide
+                Made with
+              </p>
+              <i className="bi bi-heart-fill text-red-500 animate-pulse"></i>
+              <p className="text-gray-400 text-sm">
+                for learners worldwide
               </p>
             </div>
           </div>
@@ -212,7 +206,7 @@ export default function Footer() {
 
 interface SocialLinkProps {
   href: string
-  icon: string
+  icon: React.ReactNode
   label: string
 }
 
@@ -220,10 +214,10 @@ function SocialLink({ href, icon, label }: SocialLinkProps) {
   return (
     <a
       href={href}
-      className="w-10 h-10 bg-gray-800 hover:bg-gradient-to-r hover:from-vedya-purple hover:to-vedya-pink rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110"
+      className="group w-12 h-12 bg-gray-800 hover:bg-gradient-to-r hover:from-vedya-purple hover:to-vedya-pink rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 hover:rotate-6"
       aria-label={label}
     >
-      <span className="text-lg">{icon}</span>
+      <span className="text-xl text-gray-300 group-hover:text-white transition-colors duration-300">{icon}</span>
     </a>
   )
 }
@@ -236,10 +230,10 @@ interface FeatureHighlightProps {
 
 function FeatureHighlight({ icon, title, description }: FeatureHighlightProps) {
   return (
-    <div className="text-center">
-      <div className="text-vedya-purple mb-3 flex justify-center">{icon}</div>
-      <h5 className="text-lg font-semibold text-white mb-2">{title}</h5>
-      <p className="text-gray-400 text-sm">{description}</p>
+    <div className="text-center group">
+      <div className="text-vedya-purple mb-3 flex justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">{icon}</div>
+      <h5 className="text-lg font-semibold text-white mb-2 transition-colors duration-300 group-hover:text-vedya-yellow">{title}</h5>
+      <p className="text-gray-400 text-sm leading-relaxed">{description}</p>
     </div>
   )
 }
