@@ -352,6 +352,28 @@
   animation: float 6s ease-in-out infinite;
 }
 
+/* Product page hover / interaction */
+.hover-lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+.hover-scale-subtle {
+  transition: transform 0.25s ease;
+}
+.hover-scale-subtle:hover {
+  transform: scale(1.02);
+}
+.btn-cta-product {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-cta-product:hover {
+  transform: scale(1.03);
+  box-shadow: 0 10px 15px -3px rgb(136 87 242 / 0.3), 0 4px 6px -4px rgb(136 87 242 / 0.2);
+}
+
 .animate-pulse-slow {
   animation: pulse-slow 3s ease-in-out infinite;
 }

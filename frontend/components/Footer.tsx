@@ -5,25 +5,21 @@ export default function Footer() {
 
   const footerLinks = {
     product: [
-      { name: 'Features', href: '#features' },
-      { name: 'AI Agents', href: '#' },
-      { name: 'Learning Paths', href: '#' },
-      { name: 'Assessments', href: '#' },
-      { name: 'Progress Tracking', href: '#' }
+      { name: 'Features', href: '/features' },
+      { name: 'AI Agents', href: '/ai-agents' },
+      { name: 'Learning Paths', href: '/learning-paths' },
+      { name: 'Assessments', href: '/assessments' },
+      { name: 'Progress Tracking', href: '/progress-tracking' }
     ],
     company: [
-      { name: 'About Us', href: '#' },
-      { name: 'Careers', href: '#' },
-      { name: 'Blog', href: '#' },
-      { name: 'Press', href: '#' },
-      { name: 'Contact', href: '#' }
+      { name: 'About Us', href: '/about-us' },
+      { name: 'Blog', href: '/blog' },
+      { name: 'Press', href: '/press' }
     ],
     resources: [
-      { name: 'Documentation', href: '#' },
-      { name: 'API Reference', href: '#' },
-      { name: 'Community', href: '#' },
-      { name: 'Help Center', href: '#' },
-      { name: 'Tutorials', href: '#' }
+      { name: 'Documentation', href: '/documentation' },
+      { name: 'API Reference', href: '/api-reference' },
+      { name: 'Help Center', href: '/help-center' }
     ],
     legal: [
       { name: 'Privacy Policy', href: '#' },

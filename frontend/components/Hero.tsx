@@ -287,7 +287,7 @@ export default function Hero({ onStartLearning }: HeroProps) {
           </div>
 
           {/* Trusted by strip (matches screenshot style) */}
-          <div className="mt-14 max-w-6xl mx-auto">
+          {/* <div className="mt-14 max-w-6xl mx-auto">
             <div className="flex items-center justify-center gap-6 text-gray-700">
               <div className="hidden sm:block h-px flex-1 border-t border-dashed border-gray-300/70" />
               <p className="text-sm md:text-base font-medium tracking-wide text-gray-700 whitespace-nowrap">
@@ -312,7 +312,7 @@ export default function Hero({ onStartLearning }: HeroProps) {
                 <span className="text-2xl font-semibold tracking-tight">Dune</span>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
 

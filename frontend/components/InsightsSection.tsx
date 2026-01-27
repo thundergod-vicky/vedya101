@@ -1,7 +1,9 @@
 'use client'
 
 import 'bootstrap-icons/font/bootstrap-icons.css'
+import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
+import { PRODUCT_IMAGES } from '@/lib/product-images'
 
 function Pill({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
@@ -12,15 +14,17 @@ function Pill({ icon, label }: { icon: React.ReactNode; label: string }) {
   )
 }
 
-function ImagePlaceholder({ label }: { label: string }) {
+function ChartPanel({ src, alt }: { src: string; alt: string }) {
   return (
     <div className="relative w-full rounded-2xl bg-white/80 ring-1 ring-black/5 shadow-[0_18px_40px_rgba(0,0,0,0.12)] overflow-hidden">
-      {/* 16:9-ish placeholder area */}
-      <div className="aspect-[16/9] w-full bg-gradient-to-b from-slate-50 to-slate-100" />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="px-4 py-2 rounded-full bg-white/80 backdrop-blur-sm ring-1 ring-black/10 text-sm text-slate-600">
-          {label} (image placeholder)
-        </div>
+      <div className="aspect-[16/9] w-full relative">
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          className="object-cover"
+          sizes="(max-width: 1024px) 100vw, 50vw"
+        />
       </div>
     </div>
   )
@@ -130,8 +134,8 @@ export default function InsightsSection() {
           `}
           style={{ transitionDelay: '150ms' }}
         >
-          <ImagePlaceholder label="Chart panel A" />
-          <ImagePlaceholder label="Chart panel B" />
+          <ChartPanel src={PRODUCT_IMAGES.aiInsightsPanel} alt="AI-powered insights" />
+          <ChartPanel src={PRODUCT_IMAGES.aiDataPanel} alt="Machine learning and data intelligence" />
         </div>
 
         {/* Tag pills - infinite marquee (left -> right) */}
