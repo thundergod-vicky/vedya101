@@ -5,11 +5,17 @@ import { ReactSketchCanvas, type ReactSketchCanvasRef } from 'react-sketch-canva
 
 const STROKE_COLORS = ['#4f46e5', '#7c3aed', '#1f2937', '#dc2626', '#059669', '#0ea5e9']
 
-export default function Sketchboard() {
+interface SketchboardProps {
+  /** When provided, a Submit button is shown that exports the canvas as PNG and calls this with the data URL */
+  onSubmit?: (imageDataUrl: string) => void
+}
+
+export default function Sketchboard({ onSubmit }: SketchboardProps) {
   const canvasRef = useRef<ReactSketchCanvasRef>(null)
   const [strokeWidth, setStrokeWidth] = useState(4)
   const [strokeColor, setStrokeColor] = useState(STROKE_COLORS[0])
   const [isEraser, setIsEraser] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const handleClear = () => {
     canvasRef.current?.clearCanvas()
@@ -23,6 +29,19 @@ export default function Sketchboard() {
     const next = !isEraser
     setIsEraser(next)
     canvasRef.current?.eraseMode(next)
+  }
+
+  const handleSubmit = async () => {
+    if (!onSubmit || !canvasRef.current) return
+    setSubmitting(true)
+    try {
+      const dataUrl = await canvasRef.current.exportImage('png')
+      onSubmit(dataUrl)
+    } catch (e) {
+      console.error('Failed to export canvas:', e)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -85,6 +104,16 @@ export default function Sketchboard() {
           >
             Clear
           </button>
+          {onSubmit && (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+            >
+              {submitting ? 'Submitting…' : 'Submit to chat'}
+            </button>
+          )}
         </div>
       </div>
       <div className="flex-1 min-h-0 relative bg-[#fafafa]">

@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import { API_ENDPOINTS } from '../lib/api-config'
 import Sketchboard from './Sketchboard'
+import DrawioPanel from './DrawioPanel'
 
 const CHAT_WIDTH_DEFAULT_PX = 380
 const CHAT_WIDTH_MIN_PX = 280
@@ -30,7 +31,9 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
   const { user } = useUser()
   const [messages, setMessages] = useState<TeachingMessage[]>([])
   const [inputValue, setInputValue] = useState('')
+  const [pendingImage, setPendingImage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [currentConcept, setCurrentConcept] = useState('')
   const [showExplanationPanel, setShowExplanationPanel] = useState(false)
   const [explanationText, setExplanationText] = useState('')
@@ -41,6 +44,8 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
   const [playgroundCode, setPlaygroundCode] = useState('# Try the code from the lesson here!\n# Example:\nprint("Hello from the playground!")\nprint(2 + 2)')
   const [playgroundOutput, setPlaygroundOutput] = useState<{ stdout: string; stderr: string; exitCode: number } | null>(null)
   const [playgroundRunning, setPlaygroundRunning] = useState(false)
+  const [rightPanelMode, setRightPanelMode] = useState<'notebook' | 'diagram'>('notebook')
+  const [topPanelMode, setTopPanelMode] = useState<'playground' | 'jupyterlite'>('playground')
   // Voice: input (mic) and output (TTS)
   const [isListening, setIsListening] = useState(false)
   const [speechInputSupported, setSpeechInputSupported] = useState(false)
@@ -311,31 +316,38 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
     }
   }
 
-  const sendMessage = async (raw: string) => {
+  const sendMessage = async (raw: string, imageDataUrl?: string) => {
     const currentInput = raw.trim()
-    if (!currentInput) return
+    if (!currentInput && !imageDataUrl) return
 
+    const caption = currentInput || (imageDataUrl ? "I'm sharing an image. What do you think?" : '')
     const userMessage: TeachingMessage = {
       id: Date.now().toString(),
-      content: currentInput,
+      content: caption,
       sender: 'user',
       timestamp: new Date(),
-      type: 'text'
+      type: imageDataUrl ? 'image' : 'text',
+      imageUrl: imageDataUrl
     }
     setMessages(prev => [...prev, userMessage])
     setIsLoading(true)
 
     try {
+      const body: Record<string, unknown> = {
+        message: caption,
+        plan_id: planId,
+        module_id: moduleId,
+        current_concept: currentConcept,
+        stream: false
+      }
+      if (imageDataUrl) {
+        const base64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, '')
+        body.image_base64 = base64
+      }
       const response = await fetch(API_ENDPOINTS.teachingChat, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: currentInput,
-          plan_id: planId,
-          module_id: moduleId,
-          current_concept: currentConcept,
-          stream: false
-        }),
+        body: JSON.stringify(body),
       })
       const data = await response.json()
 
@@ -388,10 +400,28 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
   }
 
   const handleSendMessage = () => {
-    if (!inputValue.trim()) return
-    const t = inputValue.trim()
+    const text = inputValue.trim()
+    const image = pendingImage
+    if (!text && !image) return
     setInputValue('')
-    sendMessage(t)
+    setPendingImage(null)
+    sendMessage(text || "I'm sharing an image.", image || undefined)
+  }
+
+  const handleSketchSubmit = (imageDataUrl: string) => {
+    sendMessage("I'm sharing my notebook sketch. What do you think?", imageDataUrl)
+  }
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !file.type.startsWith('image/')) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      setPendingImage(dataUrl)
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -427,6 +457,15 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
     setPlaygroundLanguage(lang)
     setPlaygroundCode(PLAYGROUND_DEFAULTS[lang] ?? PLAYGROUND_DEFAULTS.python)
     setPlaygroundOutput(null)
+  }
+
+  const handlePlaygroundSubmitToChat = () => {
+    const lang = playgroundLanguage.toUpperCase()
+    const code = playgroundCode.trim()
+    const message = code
+      ? `Here's my code from the playground (${lang}). Can you review it or help me with it?\n\n\`\`\`${lang.toLowerCase()}\n${code}\n\`\`\``
+      : `I'm working in the ${lang} playground but haven't written any code yet. Can you suggest something to try?`
+    sendMessage(message)
   }
 
   const generateVisualExplanation = async (topic: string) => {
@@ -555,11 +594,11 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
                 </div>
               )
             ) : (
-              <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-              </div>
+              <img
+                src="/assets/images/Logo.png"
+                alt="VAYU"
+                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+              />
             )}
           </div>
 
@@ -604,9 +643,11 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
                     }}
                   />
                 )}
-                <div className="p-2 text-xs text-center text-gray-500">
-                  Visual aid for: {message.content.replace("Here's a visual to help illustrate ", "").replace(":", "").trim()}
-                </div>
+                {message.sender === 'teacher' && (
+                  <div className="p-2 text-xs text-center text-gray-500">
+                    Visual aid for: {message.content.replace("Here's a visual to help illustrate ", "").replace(":", "").trim()}
+                  </div>
+                )}
               </div>
             )}
             
@@ -693,11 +734,11 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
               {isLoading && (
                 <div className="flex justify-start mb-4">
                   <div className="flex items-start space-x-3 max-w-3xl">
-                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white flex-shrink-0">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                      </svg>
-                    </div>
+                    <img
+                      src="/assets/images/Logo.png"
+                      alt="VAYU"
+                      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                    />
                     <div className="bg-white border rounded-2xl px-4 py-3 shadow-sm">
                       <div className="flex space-x-1">
                         <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
@@ -711,7 +752,33 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
               <div ref={messagesEndRef} />
             </div>
             <div className="bg-white border-t p-3 flex-shrink-0">
+              {pendingImage && (
+                <div className="flex items-center gap-2 mb-2">
+                  <img src={pendingImage} alt="Attached" className="h-12 w-12 object-cover rounded border border-gray-200" />
+                  <span className="text-xs text-gray-500">Image attached</span>
+                  <button type="button" onClick={() => setPendingImage(null)} className="text-xs text-red-600 hover:text-red-700">Remove</button>
+                </div>
+              )}
               <div className="flex items-end gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  aria-label="Upload image"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 flex-shrink-0"
+                  aria-label="Upload image"
+                  title="Upload image"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </button>
                 <textarea
                   ref={inputRef}
                   value={inputValue}
@@ -742,7 +809,7 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
                 )}
                 <button
                   onClick={handleSendMessage}
-                  disabled={!inputValue.trim() || isLoading}
+                  disabled={(!inputValue.trim() && !pendingImage) || isLoading}
                   className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                 >
                   Send
@@ -769,7 +836,33 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
         <Group orientation="vertical" className="h-full flex-1 min-h-0">
             <Panel defaultSize={50} minSize={25} className="min-h-0 flex flex-col">
               <div className="flex flex-col flex-1 min-h-0 p-3 pt-0">
+                <div className="flex gap-1 mb-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setTopPanelMode('playground')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                      topPanelMode === 'playground'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Playground
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTopPanelMode('jupyterlite')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                      topPanelMode === 'jupyterlite'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    JupyterLite
+                  </button>
+                </div>
                 <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          {topPanelMode === 'playground' ? (
+            <>
           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gray-50/80 flex-shrink-0 flex-wrap gap-2">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-medium text-gray-800">Code Playground</span>
@@ -825,6 +918,13 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
               >
                 Clear
               </button>
+              <button
+                onClick={handlePlaygroundSubmitToChat}
+                disabled={isLoading}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              >
+                Submit to chat
+              </button>
             </div>
             <div className="min-h-[80px] max-h-[140px] overflow-auto border-t border-gray-200 bg-gray-900 text-gray-100 font-mono text-xs p-3">
               {playgroundOutput === null && !playgroundRunning && (
@@ -845,6 +945,22 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
               )}
             </div>
           </div>
+            </>
+          ) : topPanelMode === 'jupyterlite' ? (
+          <div className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gray-50/80 flex-shrink-0">
+              <span className="text-sm font-medium text-gray-800">JupyterLite (Python in browser)</span>
+              <a href="https://jupyterlite.readthedocs.io/" target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 hover:text-indigo-800">Docs</a>
+            </div>
+            <div className="flex-1 min-h-0 relative bg-[#fafafa]">
+              <iframe
+                src="https://jupyterlite.github.io/demo/repl/index.html?kernel=python&toolbar=1"
+                title="JupyterLite Python REPL"
+                className="absolute inset-0 w-full h-full border-0 rounded-b-xl"
+              />
+            </div>
+          </div>
+          ) : null}
         </div>
               </div>
             </Panel>
@@ -853,7 +969,33 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
 
             <Panel defaultSize={50} minSize={20} className="min-h-0 flex flex-col">
               <div className="flex flex-col flex-1 min-h-0 p-3">
-                <Sketchboard />
+                <div className="flex gap-1 mb-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setRightPanelMode('notebook')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                      rightPanelMode === 'notebook'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Notebook
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRightPanelMode('diagram')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                      rightPanelMode === 'diagram'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Diagrams (Draw.io)
+                  </button>
+                </div>
+                <div className="flex-1 min-h-0 min-w-0">
+                  {rightPanelMode === 'notebook' ? <Sketchboard onSubmit={handleSketchSubmit} /> : <DrawioPanel />}
+                </div>
               </div>
             </Panel>
           </Group>

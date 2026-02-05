@@ -1128,8 +1128,9 @@ async def teaching_chat(request: dict):
         module_id = request.get('module_id')
         current_concept = request.get('current_concept', '')
         stream = request.get('stream', False)
+        image_base64 = request.get('image_base64')  # optional: base64 image for vision (sketch/upload)
         
-        print(f"📝 Teaching chat request: '{message}' | Stream: {stream}")
+        print(f"📝 Teaching chat request: '{message[:60]}...' | Stream: {stream} | Image: {bool(image_base64)}")
         
         # Build session context
         session_context = {
@@ -1163,7 +1164,9 @@ async def teaching_chat(request: dict):
                 )
             else:
                 # For non-streaming response, process the message (returns dict with 'response' text)
-                result = await teaching_assistant.handle_teaching_chat(message, session_context)
+                result = await teaching_assistant.handle_teaching_chat(
+                    message, session_context, image_base64=image_base64
+                )
                 response_text = result.get("response", "") if isinstance(result, dict) else str(result or "")
                 
                 # Only generate image when explicitly needed: agent flag, user asked for one, or response says "here's a visual/diagram"

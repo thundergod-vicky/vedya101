@@ -882,7 +882,9 @@ Start with a warm welcome and ask about their familiarity with {current_module} 
                 "plan_data": learning_plan
             }
     
-    async def handle_teaching_chat(self, message: str, session_context: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_teaching_chat(
+        self, message: str, session_context: Dict[str, Any], image_base64: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Handle ongoing teaching conversation with contextual awareness."""
         
         subject = session_context.get('subject', 'the subject')
@@ -930,10 +932,20 @@ RESPONSE INSTRUCTIONS:
 Remember: You are having a conversation with the student, not delivering a lecture."""
 
         try:
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=f"Student says: {message}")
-            ]
+            if image_base64:
+                human_content = [
+                    {"type": "text", "text": f"Student says: {message}. They shared an image (e.g. a sketch or diagram). Look at the image and respond to what they're showing or asking."},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
+                ]
+                messages = [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=human_content)
+                ]
+            else:
+                messages = [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=f"Student says: {message}")
+                ]
             
             response = await self.llm.ainvoke(messages)
             
