@@ -14,7 +14,7 @@ const PRESS_RELEASES = [
 ]
 
 const MEDIA_ASSETS = [
-  { name: 'Logo', description: 'VEDYA logo for light and dark backgrounds', icon: 'bi-image', action: 'Download', image: '/assets/images/only_logo.png', type: 'local' as const },
+  { name: 'Logo', description: 'VEDYA logo for light and dark backgrounds', icon: 'bi-image', action: 'Download', image: '/assets/images/Logo.png', type: 'local' as const },
   { name: 'Brand guidelines', description: 'Colors, typography, and usage', icon: 'bi-palette', action: 'View PDF', image: 'https://picsum.photos/seed/vedyabrand/600/320', type: 'remote' as const },
   { name: 'Screenshots', description: 'Product screenshots and key visuals', icon: 'bi-window', action: 'Download ZIP', image: 'https://picsum.photos/seed/vedyaui/600/320', type: 'remote' as const },
   { name: 'Boilerplate', description: 'Company description and key facts', icon: 'bi-file-text', action: 'Copy', image: 'https://picsum.photos/seed/vedyadoc/600/320', type: 'remote' as const },

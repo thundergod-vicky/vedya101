@@ -4,7 +4,7 @@ VEDYA API Server
 FastAPI server to serve the LangGraph agent system to the frontend
 """
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -20,6 +20,8 @@ from vedya_agents import create_vedya_langgraph_system
 from email_service import email_service
 from user_service import UserService
 from ai_planning_agent import ai_planning_agent
+from diagram_utils import make_diagram_data_url
+import openai as openai_lib
 
 # Helper function to ensure correct temperature for models
 def get_safe_temperature(model_name, default_temp=0.7):
@@ -38,7 +40,7 @@ app = FastAPI(
 # Add CORS middleware to allow frontend connections
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Frontend URLs
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001"],  # Frontend URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,6 +54,7 @@ user_sessions = {}  # Simple in-memory session storage
 class ChatMessage(BaseModel):
     message: str
     session_id: Optional[str] = None
+    clerk_user_id: Optional[str] = None  # fallback for saving learning plan when session is not our conversation id
 
 class ChatResponse(BaseModel):
     response: str
@@ -94,21 +97,35 @@ async def health_check():
 async def chat_endpoint(chat_message: ChatMessage):
     """Main chat endpoint for professional planning conversation."""
     try:
-        # Use the AI-powered planning agent
+        plan_ready_message = None
+        if user_service:
+            try:
+                plan_ready_message = await user_service.get_app_setting("plan_ready_message")
+            except Exception:
+                pass
         result = await ai_planning_agent.process_message(
             message=chat_message.message,
-            session_id=chat_message.session_id
+            session_id=chat_message.session_id,
+            plan_ready_message=plan_ready_message,
         )
-        
+        session_id = result["session_id"]
+        plan_ready = result.get("plan_ready", False)
+        if plan_ready and user_service and session_id:
+            try:
+                plan_data = ai_planning_agent.get_learning_plan(session_id)
+                if plan_data:
+                    ok = await user_service.save_learning_plan_for_conversation(session_id, plan_data)
+                    if not ok and chat_message.clerk_user_id:
+                        await user_service.save_learning_plan_for_clerk_user(chat_message.clerk_user_id, plan_data)
+            except Exception as e:
+                print(f"Error saving learning plan to DB: {e}")
         return ChatResponse(
             response=result["response"],
-            session_id=result["session_id"],
+            session_id=session_id,
             timestamp=datetime.now().isoformat()
         )
-        
     except Exception as e:
         print(f"Error in chat endpoint: {e}")
-        # Fallback response
         session_id = chat_message.session_id or str(uuid.uuid4())
         return ChatResponse(
             response="I'm here to help you create a personalized learning plan. What would you like to learn?",
@@ -120,39 +137,49 @@ async def chat_endpoint(chat_message: ChatMessage):
 async def chat_stream_endpoint(chat_message: ChatMessage):
     """Streaming chat endpoint for real-time responses."""
     from streaming_utils import stream_text_chunks
-    
+
     async def generate_response():
         try:
-            # Use the AI planning agent system
+            plan_ready_message = None
+            if user_service:
+                try:
+                    plan_ready_message = await user_service.get_app_setting("plan_ready_message")
+                except Exception:
+                    pass
             result = await ai_planning_agent.process_message(
                 message=chat_message.message,
-                session_id=chat_message.session_id
+                session_id=chat_message.session_id,
+                plan_ready_message=plan_ready_message,
             )
-            
             response_text = result["response"]
             session_id = result["session_id"]
             metadata = result.get("metadata", {})
-            
-            # Send initial metadata
+            plan_ready = result.get("plan_ready", False)
+
             yield f"data: {json.dumps({'type': 'metadata', 'session_id': session_id, 'timestamp': datetime.now().isoformat()})}\n\n"
-            
-            # Stream the response character by character for a more natural feel
             accumulated = ""
             async for char in stream_text_chunks(response_text, character_by_character=True):
                 accumulated += char
                 yield f"data: {json.dumps({'type': 'content', 'content': char, 'accumulated': accumulated})}\n\n"
-            
-            # Send final metadata with action buttons
             if metadata:
                 yield f"data: {json.dumps({'type': 'final_metadata', 'metadata': metadata})}\n\n"
-            
-            # Send completion signal
+            # Save the course to DB *before* sending complete so it’s in Learnings when user clicks "View My Learning Plan"
+            if plan_ready and user_service and session_id:
+                try:
+                    plan_data = ai_planning_agent.get_learning_plan(session_id)
+                    if plan_data:
+                        ok = await user_service.save_learning_plan_for_conversation(session_id, plan_data)
+                        if not ok and chat_message.clerk_user_id:
+                            ok = await user_service.save_learning_plan_for_clerk_user(chat_message.clerk_user_id, plan_data)
+                        if ok:
+                            print("Learning plan saved to DB for user.")
+                except Exception as e:
+                    print(f"Error saving learning plan to DB: {e}")
             yield f"data: {json.dumps({'type': 'complete'})}\n\n"
-            
         except Exception as e:
             print(f"Error in streaming chat endpoint: {e}")
             yield f"data: {json.dumps({'type': 'error', 'error': 'Something went wrong. Please try again.'})}\n\n"
-    
+
     return StreamingResponse(
         generate_response(),
         media_type="text/event-stream",
@@ -403,6 +430,144 @@ async def get_user_by_clerk_id(clerk_user_id: str):
         print(f"Error getting user: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get user: {str(e)}")
 
+class OnboardingStatusResponse(BaseModel):
+    completed: bool
+    data: Optional[Dict[str, Any]] = None
+
+@app.get("/users/onboarding-status", response_model=OnboardingStatusResponse)
+async def get_onboarding_status(clerk_user_id: str):
+    """Check if the user has completed onboarding."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    try:
+        result = await user_service.get_onboarding_status(clerk_user_id)
+        return OnboardingStatusResponse(**result)
+    except Exception as e:
+        print(f"Error getting onboarding status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/users/onboarding-data")
+async def get_onboarding_data(clerk_user_id: str):
+    """Get full onboarding data for the current user (for settings page)."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    try:
+        data = await user_service.get_onboarding_data(clerk_user_id)
+        if data is None:
+            raise HTTPException(status_code=404, detail="Onboarding data not found")
+        return {"success": True, "data": data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error getting onboarding data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class OnboardingData(BaseModel):
+    clerk_user_id: str
+    full_name: Optional[str] = None
+    address: Optional[str] = None
+    gender: Optional[str] = None
+    country: Optional[str] = None
+    age: Optional[int] = None
+    languages_to_learn: Optional[List[str]] = None
+    educational_status: Optional[str] = None
+
+@app.post("/users/onboarding")
+async def save_onboarding(payload: OnboardingData):
+    """Save onboarding wizard data for the current user."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    try:
+        data = payload.model_dump(exclude_unset=True)
+        data["clerk_user_id"] = payload.clerk_user_id
+        result = await user_service.save_onboarding(payload.clerk_user_id, data)
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Failed to save onboarding"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error saving onboarding: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ChatSessionCreate(BaseModel):
+    clerk_user_id: str
+
+class ChatMessageCreate(BaseModel):
+    session_id: str
+    role: str
+    content: str
+
+@app.post("/chat/sessions")
+async def create_chat_session(payload: ChatSessionCreate):
+    """Create a chat conversation (session) for the user. Returns session_id for use with chat and saving messages."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    session_id = await user_service.create_chat_conversation(payload.clerk_user_id)
+    if not session_id:
+        raise HTTPException(status_code=400, detail="User not found or could not create session")
+    return {"session_id": session_id}
+
+@app.post("/chat/messages")
+async def save_chat_message(payload: ChatMessageCreate):
+    """Save a chat message (user or assistant) with server timestamp."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    ok = await user_service.save_chat_message(payload.session_id, payload.role, payload.content)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to save message")
+    return {"success": True}
+
+@app.get("/chat/sessions")
+async def list_chat_sessions(clerk_user_id: str):
+    """List the user's chat conversations, most recent first."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    sessions = await user_service.list_chat_conversations(clerk_user_id)
+    return {"sessions": sessions}
+
+@app.delete("/chat/sessions/{session_id}")
+async def delete_chat_session(session_id: str, clerk_user_id: str):
+    """Delete a chat conversation and its messages (must belong to the user)."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    if not clerk_user_id:
+        raise HTTPException(status_code=400, detail="clerk_user_id required")
+    deleted = await user_service.delete_chat_conversation(session_id, clerk_user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found or not owned by you")
+    return {"success": True}
+
+@app.get("/chat/messages")
+async def get_chat_messages(session_id: str):
+    """Get messages for a chat session (conversation)."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    messages = await user_service.get_chat_messages(session_id)
+    return {"messages": messages}
+
+# App settings (e.g. configurable plan-ready message shown when a learning plan is generated)
+@app.get("/settings/plan-ready-message")
+async def get_plan_ready_message():
+    """Get the configurable message shown when a learning plan is ready (dashboard)."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    value = await user_service.get_app_setting("plan_ready_message")
+    return {"value": value or ""}
+
+class PlanReadyMessageUpdate(BaseModel):
+    value: str
+
+@app.post("/settings/plan-ready-message")
+async def set_plan_ready_message(payload: PlanReadyMessageUpdate):
+    """Set the message shown when a learning plan is ready. Saved in DB."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    ok = await user_service.set_app_setting("plan_ready_message", (payload.value or "").strip())
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to save setting")
+    return {"success": True, "value": (payload.value or "").strip()}
+
 @app.get("/users/email/{email}")
 async def get_user_by_email(email: str):
     """Get user information by email address."""
@@ -561,12 +726,232 @@ async def send_user_weekly_report(user_id: str, notification_data: Dict[str, Any
         print(f"Error sending weekly report: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to send notification: {str(e)}")
 
+def _shape_plan_for_frontend(
+    plan_id: str,
+    title: str,
+    summary: str,
+    created_at: Optional[str],
+    plan_data: Dict[str, Any],
+    time_spent_minutes: int = 0,
+    overall_progress: int = 0,
+    progress_data: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Transform DB plan + plan_data into frontend shape (modules, tasks, progress)."""
+    progress_data = progress_data or {}
+    subject = (plan_data.get("subject") or "Learning").title()
+    difficulty = (plan_data.get("difficulty_level") or "Beginner").title()
+    learning_style = (plan_data.get("learning_style") or "Mixed").replace("_", " ").title()
+    total_weeks = plan_data.get("total_duration_weeks") or 12
+    total_duration = f"{total_weeks} weeks"
+    modules_raw = plan_data.get("modules") or []
+    kanban_tasks = plan_data.get("kanban_tasks") or []
+    modules: List[Dict[str, Any]] = []
+    for i, m in enumerate(modules_raw):
+        mod_id = f"module_{i+1}"
+        duration_weeks = m.get("duration_weeks") or 4
+        tasks_for_mod = [t for t in kanban_tasks if f"Module {i+1}" in (t.get("title") or "")]
+        if not tasks_for_mod and kanban_tasks and i < len(kanban_tasks):
+            t = kanban_tasks[i] if i < len(kanban_tasks) else None
+            if t:
+                tasks_for_mod = [t]
+        tasks = []
+        for j, t in enumerate(tasks_for_mod or []):
+            task_id = t.get("task_id") or f"task_{mod_id}_{j}"
+            task_prog = (progress_data.get("tasks") or {}).get(task_id, {})
+            tasks.append({
+                "id": task_id,
+                "title": t.get("title") or "Task",
+                "description": t.get("description") or "",
+                "status": task_prog.get("status", t.get("status") or "todo"),
+                "module": m.get("title") or mod_id,
+                "priority": (t.get("priority") or "medium").lower(),
+                "estimatedTime": f"{t.get('estimated_hours') or 0} hrs",
+            })
+        if not tasks:
+            tasks = [{"id": f"task_{mod_id}_0", "title": f"Complete {m.get('title', mod_id)}", "description": m.get("description") or "", "status": "todo", "module": m.get("title") or mod_id, "priority": "medium", "estimatedTime": "1 hr"}]
+        mod_prog = progress_data.get("modules") or {}
+        mod_status = mod_prog.get(mod_id, {}).get("status", "not_started")
+        mod_progress_pct = mod_prog.get(mod_id, {}).get("progress", 0)
+        modules.append({
+            "id": mod_id,
+            "title": m.get("title") or f"Module {i+1}",
+            "description": m.get("description") or "",
+            "duration": f"{duration_weeks} weeks",
+            "status": mod_status,
+            "progress": mod_progress_pct,
+            "tasks": tasks,
+        })
+    return {
+        "id": plan_id,
+        "title": title or f"{subject} Learning Plan",
+        "subject": subject,
+        "description": summary or "",
+        "totalDuration": total_duration,
+        "difficulty": difficulty,
+        "learningStyle": learning_style,
+        "modules": modules,
+        "overallProgress": overall_progress,
+        "timeSpentMinutes": time_spent_minutes,
+        "progressData": progress_data,
+        "createdAt": created_at or datetime.now().isoformat(),
+        "plan_data": plan_data,
+    }
+
+
 # Learning Plans endpoints
 @app.get("/learning-plans")
-async def get_learning_plans(authorization: str = Header(None)):
-    """Get all learning plans for a user."""
+async def get_learning_plans(clerk_user_id: str = None, authorization: str = Header(None)):
+    """Get all learning plans for a user (from DB). Pass clerk_user_id as query param."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    cid = clerk_user_id or (authorization.replace("Bearer ", "").strip() if authorization else None)
+    if not cid:
+        raise HTTPException(status_code=400, detail="clerk_user_id or Authorization required")
     try:
-        # For now, return mock data with realistic new user progress
+        rows = await user_service.list_learning_plans(cid)
+        plans = [
+            _shape_plan_for_frontend(
+                r["id"],
+                r["title"],
+                r["summary"],
+                r.get("created_at"),
+                r.get("plan_data") or {},
+                time_spent_minutes=int(r.get("time_spent_minutes") or 0),
+                overall_progress=int(r.get("overall_progress") or 0),
+                progress_data=r.get("progress_data") if isinstance(r.get("progress_data"), dict) else {},
+            )
+            for r in rows
+        ]
+        return {"success": True, "plans": plans}
+    except Exception as e:
+        print(f"Error getting learning plans: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/learning-plans/check")
+async def check_learning_plans(clerk_user_id: str = None, authorization: str = Header(None)):
+    """Check if the user has any learning plans (e.g. for Navbar). Must be defined before /learning-plans/{plan_id}."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    cid = clerk_user_id or (authorization.replace("Bearer ", "").strip() if authorization else None)
+    if not cid:
+        raise HTTPException(status_code=400, detail="clerk_user_id or Authorization required")
+    try:
+        rows = await user_service.list_learning_plans(cid)
+        return {"hasPlans": len(rows) > 0}
+    except Exception as e:
+        print(f"Error checking learning plans: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/learning-plans/{plan_id}")
+async def get_learning_plan_by_id(plan_id: str, clerk_user_id: str = None, authorization: str = Header(None)):
+    """Get a single learning plan by id (must belong to the user)."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    cid = clerk_user_id or (authorization.replace("Bearer ", "").strip() if authorization else None)
+    if not cid:
+        raise HTTPException(status_code=400, detail="clerk_user_id or Authorization required")
+    try:
+        row = await user_service.get_learning_plan_by_id(plan_id, cid)
+        if not row:
+            raise HTTPException(status_code=404, detail="Learning plan not found")
+        plan = _shape_plan_for_frontend(
+            row["id"],
+            row["title"],
+            row["summary"],
+            row.get("created_at"),
+            row.get("plan_data") or {},
+            time_spent_minutes=int(row.get("time_spent_minutes") or 0),
+            overall_progress=int(row.get("overall_progress") or 0),
+            progress_data=row.get("progress_data") if isinstance(row.get("progress_data"), dict) else {},
+        )
+        return {"success": True, "plan": plan}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error getting learning plan: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/learning-plans/{plan_id}")
+async def delete_learning_plan(plan_id: str, clerk_user_id: str = None, authorization: str = Header(None)):
+    """Delete a learning plan (must belong to the user)."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    cid = clerk_user_id or (authorization.replace("Bearer ", "").strip() if authorization else None)
+    if not cid:
+        raise HTTPException(status_code=400, detail="clerk_user_id or Authorization required")
+    try:
+        ok = await user_service.delete_learning_plan(plan_id, cid)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Learning plan not found or already deleted")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error deleting learning plan: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/learning-plans/{plan_id}/progress")
+async def update_learning_plan_progress(plan_id: str, body: dict = Body(default={}), clerk_user_id: str = None, authorization: str = Header(None)):
+    """Update time spent and/or completion progress for a learning plan."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    cid = clerk_user_id or (authorization.replace("Bearer ", "").strip() if authorization else None)
+    if not cid:
+        raise HTTPException(status_code=400, detail="clerk_user_id or Authorization required")
+    try:
+        time_spent_minutes = body.get("time_spent_minutes")
+        overall_progress = body.get("overall_progress")
+        progress_data = body.get("progress_data")
+        if time_spent_minutes is not None:
+            time_spent_minutes = int(time_spent_minutes)
+        if overall_progress is not None:
+            overall_progress = min(100, max(0, int(overall_progress)))
+        ok = await user_service.update_plan_progress(plan_id, cid, time_spent_minutes=time_spent_minutes, overall_progress=overall_progress, progress_data=progress_data)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Learning plan not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating plan progress: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class SavePlanFromSessionRequest(BaseModel):
+    session_id: str
+    clerk_user_id: str
+
+
+@app.post("/learning-plans/from-session")
+async def save_plan_from_session(payload: SavePlanFromSessionRequest):
+    """Ensure the AI-generated plan for this chat session is saved to the user's Learning plans. Call when user clicks 'View My Learning Plan'."""
+    if not user_service:
+        raise HTTPException(status_code=500, detail="User service not initialized")
+    try:
+        plan_data = ai_planning_agent.get_learning_plan(payload.session_id)
+        if not plan_data:
+            raise HTTPException(status_code=404, detail="No learning plan found for this session. Finish creating a plan in the chat first.")
+        ok = await user_service.save_learning_plan_for_conversation(payload.session_id, plan_data)
+        if not ok and payload.clerk_user_id:
+            ok = await user_service.save_learning_plan_for_clerk_user(payload.clerk_user_id, plan_data)
+        if not ok:
+            raise HTTPException(status_code=400, detail="Could not save plan (user not found or not linked to session).")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error saving plan from session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/learning-plans-mock")
+async def get_learning_plans_mock(authorization: str = Header(None)):
+    """Legacy mock endpoint - get mock learning plans."""
+    try:
         mock_plans = [
             {
                 "id": "plan_1",
@@ -737,7 +1122,8 @@ async def start_teaching_session(request: dict):
 async def teaching_chat(request: dict):
     """Handle teaching chat messages with streaming support."""
     try:
-        message = request.get('message', '')
+        raw_message = request.get('message', '')
+        message = raw_message if isinstance(raw_message, str) else str(raw_message or '')
         plan_id = request.get('plan_id')
         module_id = request.get('module_id')
         current_concept = request.get('current_concept', '')
@@ -776,24 +1162,36 @@ async def teaching_chat(request: dict):
                     }
                 )
             else:
-                # For non-streaming response, process the message
-                response = await teaching_assistant.handle_teaching_chat(message, session_context)
+                # For non-streaming response, process the message (returns dict with 'response' text)
+                result = await teaching_assistant.handle_teaching_chat(message, session_context)
+                response_text = result.get("response", "") if isinstance(result, dict) else str(result or "")
                 
-                # Check if visual generation is appropriate based on message content
-                message_lower = message.lower()
-                should_generate_visual = any(word in message_lower for word in 
-                    ['visual', 'show', 'diagram', 'picture', 'graph', 'chart', 'illustration']) or \
-                    any(word in response.lower() for word in 
-                    ['diagram', 'visual', 'chart', 'graph', 'illustration', 'picture', 'shown', 'visualize'])
+                # Only generate image when explicitly needed: agent flag, user asked for one, or response says "here's a visual/diagram"
+                message_lower = (message or "").lower()
+                response_lower = (response_text or "").lower()
+                should_generate_visual = result.get("should_generate_visual", False) if isinstance(result, dict) else False
+                if not should_generate_visual:
+                    # User explicitly asked for a visual/diagram
+                    user_asks_visual = any(phrase in message_lower for phrase in [
+                        "show me a", "show a diagram", "show a visual", "can you show", "draw a", "illustrate with",
+                        "show me the", "show the diagram", "show the visual", "picture of", "image of", "graph of"
+                    ])
+                    # Response explicitly offers a visual right now (not just mentions the word)
+                    response_offers_visual = any(phrase in response_lower for phrase in [
+                        "here's a visual", "here is a visual", "here's a diagram", "here is a diagram",
+                        "here's an illustration", "below is a diagram", "below is a visual",
+                        "let me show you a diagram", "let me show you a visual", "i'll show you a"
+                    ])
+                    should_generate_visual = user_asks_visual or response_offers_visual
                 
                 print(f"✅ Teaching response generated | Visual needed: {should_generate_visual}")
                 
                 return {
                     "success": True,
-                    "response": response,
-                    "current_concept": current_concept,
+                    "response": response_text,
+                    "current_concept": result.get("current_concept", current_concept) if isinstance(result, dict) else current_concept,
                     "should_generate_visual": should_generate_visual,
-                    "visual_concept": current_concept,
+                    "visual_concept": result.get("current_concept", current_concept) if isinstance(result, dict) else current_concept,
                     "visual_type": "concept_illustration"
                 }
         else:
@@ -803,6 +1201,42 @@ async def teaching_chat(request: dict):
     except Exception as e:
         print(f"Error in teaching chat: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to process teaching chat: {str(e)}")
+
+
+async def _generate_dalle_diagram(concept: str, subject: str, diagram_type: str) -> Optional[str]:
+    """Generate an educational image via OpenAI DALL·E 3. Returns data URL or None."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key or not api_key.startswith("sk-"):
+        return None
+    prompts = {
+        "concept_illustration": f"Educational illustration of {concept} in {subject}. Clean, academic style with clear labels. Professional textbook quality.",
+        "flowchart": f"Clear flowchart diagram showing {concept} process in {subject}. Arrows, boxes, clear text labels. Professional educational style.",
+        "mind_map": f"Educational mind map for {concept} in {subject}. Central topic with branching subtopics, clear hierarchy, colorful but professional.",
+    }
+    prompt = prompts.get(diagram_type, f"Educational diagram of {concept} in {subject}. Clean, clear, academic style.")[:4000]
+
+    def _call():
+        try:
+            client = openai_lib.OpenAI(api_key=api_key)
+            resp = client.images.generate(
+                model="dall-e-3",
+                prompt=prompt,
+                size="1024x1024",
+                quality="standard",
+                response_format="b64_json",
+                style="natural",
+                n=1,
+            )
+            if not resp.data or len(resp.data) == 0:
+                return None
+            b64 = getattr(resp.data[0], "b64_json", None)
+            return f"data:image/png;base64,{b64}" if b64 else None
+        except Exception as e:
+            print(f"⚠️ DALL·E fallback failed: {e}")
+            return None
+
+    return await asyncio.to_thread(_call)
+
 
 @app.post("/teaching/generate-diagram")
 async def generate_teaching_diagram(request: dict):
@@ -849,33 +1283,29 @@ async def generate_teaching_diagram(request: dict):
                 print(f"❌ Image generation failed: {result.get('error', 'Unknown error')}")
                 # Fall through to placeholder generation
         else:
-            print("⚠️ Image generation agent not available, using placeholder")
+            print("⚠️ Image generation agent not available, trying DALL·E fallback")
         
-        # Fallback to enhanced placeholder generation
-        concept_clean = concept.replace(' ', '+').replace('_', '+')
-        subject_clean = subject.replace(' ', '+')
-        
-        # Subject-specific color schemes
-        subject_colors = {
-            'artificial intelligence': '4F46E5/FFFFFF',
-            'computer science': '059669/FFFFFF', 
-            'mathematics': 'DC2626/FFFFFF',
-            'physics': '7C3AED/FFFFFF',
-            'chemistry': 'EA580C/FFFFFF',
-            'biology': '16A34A/FFFFFF'
-        }
-        
-        color = subject_colors.get(subject.lower(), '6366F1/FFFFFF')
-        
-        # Enhanced diagram generation based on type
-        if diagram_type == "concept_illustration":
-            diagram_url = f"https://via.placeholder.com/800x600/{color}?text={concept_clean}%0A%0A{subject_clean}%0A%0AKey+Concepts+%26+Applications"
-        elif diagram_type == "flowchart":
-            diagram_url = f"https://via.placeholder.com/800x600/{color}?text={concept_clean}+Process%0A%0AStep+1+→+Step+2+→+Step+3%0A%0AWorkflow+Visualization"
+        # Fallback: try DALL·E directly, then SVG placeholder
+        diagram_url = await _generate_dalle_diagram(concept, subject, diagram_type)
+        if not diagram_url:
+            subject_colors = {
+                'artificial intelligence': '4F46E5',
+                'computer science': '059669',
+                'mathematics': 'DC2626',
+                'physics': '7C3AED',
+                'chemistry': 'EA580C',
+                'biology': '16A34A',
+            }
+            color = subject_colors.get(subject.lower(), '6366F1')
+            if diagram_type == "concept_illustration":
+                diagram_url = make_diagram_data_url(concept, subject, "Key Concepts & Applications", color)
+            elif diagram_type == "flowchart":
+                diagram_url = make_diagram_data_url(concept, subject, "Process · Step 1 → Step 2 → Step 3", color)
+            else:
+                diagram_url = make_diagram_data_url(concept, subject, "Educational Diagram", color)
+            print(f"🖼️ Using inline SVG placeholder for: {concept}")
         else:
-            diagram_url = f"https://via.placeholder.com/800x600/{color}?text={concept_clean}%0A%0AEducational+Diagram%0A%0A{subject_clean}"
-        
-        print(f"🖼️ Using placeholder image: {diagram_url}")
+            print(f"🖼️ Using DALL·E fallback image for: {concept}")
         
         return {
             "success": True,
@@ -888,6 +1318,134 @@ async def generate_teaching_diagram(request: dict):
     except Exception as e:
         print(f"Error generating diagram: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate diagram: {str(e)}")
+
+
+def _run_code_subprocess(language: str, code: str):
+    """Run code in a subprocess. Supports python, java, c, cpp, javascript."""
+    import subprocess
+    import tempfile
+
+    supported = {"python", "java", "c", "cpp", "javascript"}
+    if language not in supported:
+        return {"success": False, "stdout": "", "stderr": f"Unsupported language: {language}. Use one of: {', '.join(supported)}", "exit_code": -1}
+
+    workdir = tempfile.mkdtemp()
+    try:
+        if language == "python":
+            path = os.path.join(workdir, "main.py")
+            with open(path, "w") as f:
+                f.write(code)
+            result = subprocess.run(
+                ["python3", path],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                cwd=workdir,
+            )
+        elif language == "java":
+            path = os.path.join(workdir, "Main.java")
+            with open(path, "w") as f:
+                f.write(code)
+            comp = subprocess.run(
+                ["javac", "Main.java"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                cwd=workdir,
+            )
+            if comp.returncode != 0:
+                return {"success": False, "stdout": (comp.stdout or "").strip(), "stderr": (comp.stderr or "").strip(), "exit_code": comp.returncode}
+            result = subprocess.run(
+                ["java", "Main"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                cwd=workdir,
+            )
+        elif language == "c":
+            path = os.path.join(workdir, "main.c")
+            with open(path, "w") as f:
+                f.write(code)
+            comp = subprocess.run(
+                ["gcc", "-o", "out", "main.c"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                cwd=workdir,
+            )
+            if comp.returncode != 0:
+                return {"success": False, "stdout": (comp.stdout or "").strip(), "stderr": (comp.stderr or "").strip(), "exit_code": comp.returncode}
+            result = subprocess.run(
+                [os.path.join(workdir, "out")],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                cwd=workdir,
+            )
+        elif language == "cpp":
+            path = os.path.join(workdir, "main.cpp")
+            with open(path, "w") as f:
+                f.write(code)
+            comp = subprocess.run(
+                ["g++", "-o", "out", "main.cpp"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                cwd=workdir,
+            )
+            if comp.returncode != 0:
+                return {"success": False, "stdout": (comp.stdout or "").strip(), "stderr": (comp.stderr or "").strip(), "exit_code": comp.returncode}
+            result = subprocess.run(
+                [os.path.join(workdir, "out")],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                cwd=workdir,
+            )
+        else:  # javascript
+            path = os.path.join(workdir, "main.js")
+            with open(path, "w") as f:
+                f.write(code)
+            result = subprocess.run(
+                ["node", path],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                cwd=workdir,
+            )
+        return {
+            "success": result.returncode == 0,
+            "stdout": (result.stdout or "").strip(),
+            "stderr": (result.stderr or "").strip(),
+            "exit_code": result.returncode,
+        }
+    finally:
+        try:
+            import shutil
+            shutil.rmtree(workdir, ignore_errors=True)
+        except Exception:
+            pass
+
+
+@app.post("/teaching/execute-code")
+async def execute_code(request: dict):
+    """Run code in a sandboxed subprocess. Supports Python, Java, C, C++, JavaScript."""
+    import subprocess
+
+    try:
+        language = (request.get("language") or "python").strip().lower()
+        code = request.get("code") or ""
+
+        if not code.strip():
+            return {"success": False, "stdout": "", "stderr": "No code to run.", "exit_code": -1}
+
+        return await asyncio.to_thread(_run_code_subprocess, language, code)
+    except subprocess.TimeoutExpired:
+        return {"success": False, "stdout": "", "stderr": "Run timed out (max 15s).", "exit_code": -1}
+    except Exception as e:
+        print(f"Error executing code: {e}")
+        return {"success": False, "stdout": "", "stderr": str(e), "exit_code": -1}
+
 
 @app.post("/teaching/assessment/create")
 async def create_assessment(request: dict):

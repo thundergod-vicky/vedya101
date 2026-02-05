@@ -111,62 +111,36 @@ export default function Hero({ onStartLearning }: HeroProps) {
                 xmlns="http://www.w3.org/2000/svg"
                 aria-label="VEDYA"
               >
-                <defs>
-                  <linearGradient id="vedya-svg-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#7a49e8" />
-                    <stop offset="100%" stopColor="#f060c4" />
-                  </linearGradient>
-                  <filter id="vedya-svg-glow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                    <feMerge>
-                      <feMergeNode in="coloredBlur"/>
-                      <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                  </filter>
-                  <filter id="vedya-svg-shadow" x="-100%" y="-100%" width="300%" height="300%">
-                    <feDropShadow dx="0" dy="8" stdDeviation="12" floodColor="rgba(0, 0, 0, 0.25)"/>
-                    <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="rgba(122, 73, 232, 0.3)"/>
-                  </filter>
-                </defs>
-                <g filter="url(#vedya-svg-shadow)">
-                {/* V - horiz-adv-x: 850 (flipped vertically, rounded) */}
+                <g>
+                {/* V - single purple #8857F2 (vedya-purple), no shadow */}
                 <g transform="translate(0, 700) scale(1, -1)">
                   <path
                     d="M120 700 Q200 700 240 620 L420 200 L600 620 Q640 700 720 700 Q780 700 750 620 L500 80 Q460 0 420 0 Q380 0 340 80 L90 620 Q60 700 120 700 Z"
-                    fill="url(#vedya-svg-gradient)"
-                    filter="url(#vedya-svg-glow)"
+                    fill="#8857F2"
                   />
                 </g>
-                {/* E - horiz-adv-x: 750 (rounded) */}
                 <g transform="translate(760, 0)">
                   <path
                     d="M200 0 Q120 0 120 80 L120 620 Q120 700 200 700 L620 700 Q700 700 700 620 Q700 560 620 560 L300 560 L300 420 L560 420 Q640 420 640 350 Q640 280 560 280 L300 280 L300 140 L620 140 Q700 140 700 80 Q700 0 620 0 Z"
-                    fill="url(#vedya-svg-gradient)"
-                    filter="url(#vedya-svg-glow)"
+                    fill="#8857F2"
                   />
                 </g>
-                {/* D - horiz-adv-x: 820 (rounded) */}
                 <g transform="translate(1480, 0)">
                   <path
                     d="M200 0 Q120 0 120 80 L120 620 Q120 700 200 700 L450 700 Q700 700 700 350 Q700 0 450 0 Z M300 140 L430 140 Q540 140 540 350 Q540 560 430 560 L300 560 Z"
-                    fill="url(#vedya-svg-gradient)"
-                    filter="url(#vedya-svg-glow)"
+                    fill="#8857F2"
                   />
                 </g>
-                {/* Y - horiz-adv-x: 820 (flipped vertically, rounded) */}
                 <g transform="translate(2220, 700) scale(1, -1)">
                   <path
                     d="M120 700 Q200 700 240 620 L410 360 L580 620 Q620 700 700 700 Q760 700 730 620 L500 300 L500 80 Q500 0 410 0 Q320 0 320 80 L320 300 L90 620 Q60 700 120 700 Z"
-                    fill="url(#vedya-svg-gradient)"
-                    filter="url(#vedya-svg-glow)"
+                    fill="#8857F2"
                   />
                 </g>
-                {/* A - horiz-adv-x: 850 (flipped vertically, rounded) */}
                 <g transform="translate(2940, 700) scale(1, -1)">
                   <path
                     d="M420 700 Q460 700 500 620 L740 80 Q780 0 700 0 Q620 0 590 80 L540 200 L300 200 L250 80 Q220 0 140 0 Q60 0 100 80 L340 620 Q380 700 420 700 Z M340 340 L500 340 L420 520 Z"
-                    fill="url(#vedya-svg-gradient)"
-                    filter="url(#vedya-svg-glow)"
+                    fill="#8857F2"
                   />
                 </g>
                 </g>

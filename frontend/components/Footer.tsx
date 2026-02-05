@@ -180,21 +180,6 @@ export default function Footer() {
             </div>
           </div>
         </div>
-
-        {/* VAYU Innovations Badge - Fixed positioning */}
-        <div className="fixed bottom-4 right-4 z-40">
-          <div className="bg-gradient-to-r from-vedya-purple to-vedya-pink p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group cursor-pointer">
-            <div className="flex items-center space-x-2 text-white">
-              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                <span className="text-sm font-bold">V</span>
-              </div>
-              <div className="hidden group-hover:block transition-all duration-300">
-                <p className="text-xs font-medium">Powered by</p>
-                <p className="text-sm font-bold">VAYU Innovations</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </footer>
   )

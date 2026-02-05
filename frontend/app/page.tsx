@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useUser, SignInButton } from '@clerk/nextjs'
 import { DNA } from 'react-loader-spinner'
 import ChatInterface from '../components/ChatInterface'
+import { API_ENDPOINTS } from '../lib/api-config'
 import Navbar from '../components/Navbar'
 import Hero from '../components/Hero'
 import IntegrationsSection from '../components/IntegrationsSection'
@@ -21,9 +22,31 @@ export default function HomePage() {
   const [showChat, setShowChat] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
   const { isSignedIn, isLoaded: userLoaded, user } = useUser()
+  const [onboardingCompleted, setOnboardingCompleted] = useState(true)
 
   useEffect(() => {
     setIsLoaded(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isSignedIn || !user?.id) {
+      setOnboardingCompleted(true)
+      return
+    }
+    let cancelled = false
+    fetch(API_ENDPOINTS.onboardingStatus(user.id))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { completed?: boolean } | null) => {
+        if (!cancelled) setOnboardingCompleted(data?.completed === true)
+      })
+      .catch(() => { if (!cancelled) setOnboardingCompleted(true) })
+    return () => { cancelled = true }
+  }, [isSignedIn, user?.id])
+
+  useEffect(() => {
+    const onComplete = () => setOnboardingCompleted(true)
+    window.addEventListener('onboarding-completed', onComplete)
+    return () => window.removeEventListener('onboarding-completed', onComplete)
   }, [])
 
   const handleStartLearning = () => {
@@ -57,7 +80,7 @@ export default function HomePage() {
           <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
             <div className="relative w-24 h-24 mx-auto mb-6 rounded-2xl overflow-hidden bg-transparent">
               <Image
-                src="/assets/images/only_logo.png"
+                src="/assets/images/Logo.png"
                 alt="VEDYA logo"
                 fill
                 sizes="96px"
@@ -74,7 +97,7 @@ export default function HomePage() {
               Sign in to access your personalized learning experience powered by advanced AI technology.
             </p>
 
-            <SignInButton mode="modal">
+            <SignInButton mode="modal" forceRedirectUrl="/dashboard">
               <button className="btn-primary w-full mb-4">
                 Sign In to Start Learning
               </button>
@@ -83,21 +106,6 @@ export default function HomePage() {
             <p className="text-xs text-gray-400">
               By signing in, you agree to our Terms of Service and Privacy Policy
             </p>
-          </div>
-        </div>
-
-        {/* VAYU Innovations Fixed Badge */}
-        <div className="fixed bottom-4 right-4 z-50">
-          <div className="group bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full px-4 py-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <div className="flex items-center space-x-2">
-              <i className="bi bi-lightning-charge-fill text-vedya-purple text-sm animate-pulse"></i>
-              <span className="text-sm font-medium text-gray-700">
-                Powered by{' '}
-                <span className="gradient-text font-bold">
-                  VAYU Innovations
-                </span>
-              </span>
-            </div>
           </div>
         </div>
       </div>
@@ -118,10 +126,14 @@ export default function HomePage() {
       <Features />
       <Footer />
 
-      <ChatInterface isOpen={showChat} onClose={() => setShowChat(false)} />
+      <ChatInterface
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        initialGreeting="Lets start Learning Python Today."
+      />
 
-      {/* Floating Chat Button */}
-      {!showChat && (
+      {/* Floating Chat Button - show only after onboarding completes */}
+      {onboardingCompleted && !showChat && (
         <button
           onClick={handleStartLearning}
           className="fixed bottom-20 right-4 z-30 bg-gradient-to-r from-vedya-purple to-vedya-pink text-white p-4 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-110 hover:rotate-6 group"

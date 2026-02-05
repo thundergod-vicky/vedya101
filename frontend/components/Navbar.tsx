@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { UserButton, useUser } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { API_ENDPOINTS } from '../lib/api-config'
 import 'bootstrap-icons/font/bootstrap-icons.css'
 
@@ -16,16 +17,39 @@ interface NavbarProps {
 export default function Navbar({ onStartLearning, onBackToHome, showBackButton }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [hasLearningPlans, setHasLearningPlans] = useState(false)
+  const [onboardingCompleted, setOnboardingCompleted] = useState(true)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { isSignedIn, user } = useUser()
   const router = useRouter()
+  const pathname = usePathname()
+  const isHome = pathname === '/'
 
   useEffect(() => {
-    // Check if user has learning plans
     if (isSignedIn) {
       checkLearningPlans()
     }
   }, [isSignedIn])
+
+  useEffect(() => {
+    if (!isSignedIn || !user?.id) {
+      setOnboardingCompleted(true)
+      return
+    }
+    let cancelled = false
+    fetch(API_ENDPOINTS.onboardingStatus(user.id))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { completed?: boolean } | null) => {
+        if (!cancelled) setOnboardingCompleted(data?.completed === true)
+      })
+      .catch(() => { if (!cancelled) setOnboardingCompleted(true) })
+    return () => { cancelled = true }
+  }, [isSignedIn, user?.id])
+
+  useEffect(() => {
+    const onComplete = () => setOnboardingCompleted(true)
+    window.addEventListener('onboarding-completed', onComplete)
+    return () => window.removeEventListener('onboarding-completed', onComplete)
+  }, [])
 
   useEffect(() => {
     const onScroll = () => {
@@ -108,7 +132,7 @@ export default function Navbar({ onStartLearning, onBackToHome, showBackButton }
             >
               <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-transparent">
                 <Image
-                  src="/assets/images/only_logo.png"
+                  src="/assets/images/Logo.png"
                   alt="VEDYA logo"
                   fill
                   sizes="56px"
@@ -122,42 +146,45 @@ export default function Navbar({ onStartLearning, onBackToHome, showBackButton }
 
           {/* Center Navigation */}
           <div className="hidden md:flex items-center space-x-8 absolute left-1/2 -translate-x-1/2">
-            <button
-              onClick={() => scrollToSection('marketing')}
-              className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base"
-            >
-              Features
-            </button>
-
-            {isSignedIn && hasLearningPlans && (
-              <button
-                onClick={navigateToDashboard}
+            {pathname === '/' ? (
+              isSignedIn && onboardingCompleted && (
+                <Link
+                  href="/dashboard"
+                  className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base"
+                >
+                  Dashboard
+                </Link>
+              )
+            ) : pathname.startsWith('/dashboard') ? (
+              <Link
+                href="/"
+                className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base"
+              >
+                Home
+              </Link>
+            ) : isSignedIn && onboardingCompleted ? (
+              <Link
+                href="/dashboard"
                 className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base"
               >
                 Dashboard
-              </button>
+              </Link>
+            ) : null}
+            {isHome ? (
+              <button onClick={() => scrollToSection('pricing')} className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base">Pricing</button>
+            ) : (
+              <Link href="/#pricing" className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base">Pricing</Link>
             )}
-
-            <button
-              onClick={() => scrollToSection('pricing')}
-              className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base"
-            >
-              Pricing
-            </button>
-
-            <button
-              onClick={() => scrollToSection('faq')}
-              className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base"
-            >
-              FAQ
-            </button>
-
-            <button
-              onClick={() => scrollToSection('contact')}
-              className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base"
-            >
-              Contact
-            </button>
+            {isHome ? (
+              <button onClick={() => scrollToSection('faq')} className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base">FAQ</button>
+            ) : (
+              <Link href="/#faq" className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base">FAQ</Link>
+            )}
+            {isHome ? (
+              <button onClick={() => scrollToSection('contact')} className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base">Contact</button>
+            ) : (
+              <Link href="/#contact" className="text-gray-700 hover:text-vedya-purple font-medium transition-colors duration-200 text-base">Contact</Link>
+            )}
           </div>
 
           {/* Right Side - User Info */}
@@ -203,54 +230,36 @@ export default function Navbar({ onStartLearning, onBackToHome, showBackButton }
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-gray-200">
             <div className="flex flex-col space-y-3">
-              <button
-                onClick={() => {
-                  scrollToSection('marketing')
-                  setIsMenuOpen(false)
-                }}
-                className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium transition-colors duration-200 text-left text-base"
-              >
-                Features
-              </button>
-
-              {isSignedIn && hasLearningPlans && (
-                <button
-                  onClick={navigateToDashboard}
-                  className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium transition-colors duration-200 text-left text-base"
-                >
+              {pathname === '/' ? (
+                isSignedIn && onboardingCompleted && (
+                  <Link href="/dashboard" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium transition-colors duration-200 text-left text-base">
+                    Dashboard
+                  </Link>
+                )
+              ) : pathname.startsWith('/dashboard') ? (
+                <Link href="/" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium transition-colors duration-200 text-left text-base">
+                  Home
+                </Link>
+              ) : isSignedIn && onboardingCompleted ? (
+                <Link href="/dashboard" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium transition-colors duration-200 text-left text-base">
                   Dashboard
-                </button>
+                </Link>
+              ) : null}
+              {isHome ? (
+                <button onClick={() => { scrollToSection('pricing'); setIsMenuOpen(false) }} className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium text-left text-base">Pricing</button>
+              ) : (
+                <Link href="/#pricing" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium text-left text-base">Pricing</Link>
               )}
-
-              <button
-                onClick={() => {
-                  scrollToSection('pricing')
-                  setIsMenuOpen(false)
-                }}
-                className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium transition-colors duration-200 text-left text-base"
-              >
-                Pricing
-              </button>
-
-              <button
-                onClick={() => {
-                  scrollToSection('faq')
-                  setIsMenuOpen(false)
-                }}
-                className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium transition-colors duration-200 text-left text-base"
-              >
-                FAQ
-              </button>
-
-              <button
-                onClick={() => {
-                  scrollToSection('contact')
-                  setIsMenuOpen(false)
-                }}
-                className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium transition-colors duration-200 text-left text-base"
-              >
-                Contact
-              </button>
+              {isHome ? (
+                <button onClick={() => { scrollToSection('faq'); setIsMenuOpen(false) }} className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium text-left text-base">FAQ</button>
+              ) : (
+                <Link href="/#faq" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium text-left text-base">FAQ</Link>
+              )}
+              {isHome ? (
+                <button onClick={() => { scrollToSection('contact'); setIsMenuOpen(false) }} className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium text-left text-base">Contact</button>
+              ) : (
+                <Link href="/#contact" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-700 hover:text-vedya-purple hover:bg-gray-50 rounded-lg font-medium text-left text-base">Contact</Link>
+              )}
 
               {isSignedIn ? (
                 <div className="px-3 py-2 border-t border-gray-200 pt-4 mt-2">

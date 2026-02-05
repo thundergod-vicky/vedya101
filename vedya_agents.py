@@ -1103,9 +1103,10 @@ class ImageGenerationAssistant(VEDYAAgent):
         educational_prompt = self._create_educational_prompt(concept, subject, visual_type)
         
         try:
-            # In a real implementation, this would call DALL-E or other image generation API
-            # For now, we'll create contextual placeholder images
-            visual_url = self._generate_contextual_placeholder(concept, subject, visual_type)
+            # Generate image using OpenAI DALL·E 3
+            visual_url = await self._generate_image_openai(educational_prompt)
+            if not visual_url:
+                visual_url = self._generate_contextual_placeholder(concept, subject, visual_type)
             
             # Log generation for monitoring
             await self._log_generation_request(concept, subject, visual_type, supervisor_context)
@@ -1171,36 +1172,65 @@ class ImageGenerationAssistant(VEDYAAgent):
         
         return prompts.get(visual_type, f"Educational diagram of {concept} in {subject}. Clean, clear, academic style.")
     
+    async def _generate_image_openai(self, prompt: str) -> Optional[str]:
+        """Generate an image using OpenAI DALL·E 3. Returns a data URL or None on failure."""
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key or not api_key.startswith("sk-"):
+            print("⚠️ OPENAI_API_KEY missing or invalid, skipping DALL·E")
+            return None
+
+        def _call_dalle() -> Optional[str]:
+            try:
+                client = openai.OpenAI(api_key=api_key)
+                # DALL·E 3: sync API only; keep prompt within length/safety
+                safe_prompt = (prompt or "Educational diagram")[:4000]
+                resp = client.images.generate(
+                    model="dall-e-3",
+                    prompt=safe_prompt,
+                    size="1024x1024",
+                    quality="standard",
+                    response_format="b64_json",
+                    style="natural",
+                    n=1,
+                )
+                if not resp.data or len(resp.data) == 0:
+                    return None
+                b64 = getattr(resp.data[0], "b64_json", None)
+                if not b64:
+                    return None
+                return f"data:image/png;base64,{b64}"
+            except Exception as e:
+                print(f"⚠️ DALL·E generation failed: {e}")
+                return None
+
+        try:
+            return await asyncio.to_thread(_call_dalle)
+        except Exception as e:
+            print(f"⚠️ DALL·E task failed: {e}")
+            return None
+
     def _generate_contextual_placeholder(self, concept: str, subject: str, visual_type: str) -> str:
-        """Generate contextual placeholder images until real image generation is implemented."""
-        
-        # Clean concept and subject for URL
-        concept_clean = concept.replace(' ', '+').replace('_', '+')
-        subject_clean = subject.replace(' ', '+')
-        
-        # Color schemes based on subject
+        """Generate inline SVG diagram (data URL). No external image service required."""
+        from diagram_utils import make_diagram_data_url
+
         subject_colors = {
-            'artificial intelligence': '4F46E5/FFFFFF',
-            'computer science': '059669/FFFFFF', 
-            'mathematics': 'DC2626/FFFFFF',
-            'physics': '7C3AED/FFFFFF',
-            'chemistry': 'EA580C/FFFFFF',
-            'biology': '16A34A/FFFFFF',
-            'history': '92400E/FFFFFF',
-            'literature': 'BE185D/FFFFFF'
+            'artificial intelligence': '4F46E5',
+            'computer science': '059669',
+            'mathematics': 'DC2626',
+            'physics': '7C3AED',
+            'chemistry': 'EA580C',
+            'biology': '16A34A',
+            'history': '92400E',
+            'literature': 'BE185D',
         }
-        
-        color = subject_colors.get(subject.lower(), '6366F1/FFFFFF')
-        
-        # Create educational placeholder based on visual type
+        color = subject_colors.get(subject.lower(), '6366F1')
         if visual_type == "flowchart":
-            return f"https://via.placeholder.com/800x600/{color}?text={concept_clean}+Flowchart%0A%0AStep+1+→+Step+2+→+Step+3%0A%0AProcess+Visualization"
-        elif visual_type == "mind_map":
-            return f"https://via.placeholder.com/800x600/{color}?text={concept_clean}+Mind+Map%0A%0ACore+Concept%0A├─+Branch+1%0A├─+Branch+2%0A└─+Branch+3"
-        elif visual_type == "comparison_chart":
-            return f"https://via.placeholder.com/800x600/{color}?text={concept_clean}+Comparison%0A%0AOption+A+|+Option+B%0AFeature+1+|+Feature+2%0AAdvantage+|+Disadvantage"
-        else:
-            return f"https://via.placeholder.com/800x600/{color}?text={concept_clean}%0A%0A{subject_clean}%0A%0AEducational+Diagram"
+            return make_diagram_data_url(concept, subject, "Flowchart · Process Visualization", color)
+        if visual_type == "mind_map":
+            return make_diagram_data_url(concept, subject, "Mind Map · Core Concept", color)
+        if visual_type == "comparison_chart":
+            return make_diagram_data_url(concept, subject, "Comparison Chart", color)
+        return make_diagram_data_url(concept, subject, "Educational Diagram", color)
     
     async def _log_generation_request(self, concept: str, subject: str, visual_type: str, 
                                     supervisor_context: Dict[str, Any]) -> None:

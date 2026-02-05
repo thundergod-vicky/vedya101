@@ -139,7 +139,7 @@ export default function IntegrationsSection() {
               <div className="h-24 w-24 md:h-28 md:w-28 rounded-2xl bg-white/90 backdrop-blur-sm ring-1 ring-black/5 shadow-[0_18px_40px_rgba(0,0,0,0.18)] flex items-center justify-center">
                 <div className="relative h-20 w-20 md:h-24 md:w-24">
                   <Image
-                    src="/assets/images/only_logo.png"
+                    src="/assets/images/Logo.png"
                     alt="VEDYA"
                     fill
                     sizes="96px"

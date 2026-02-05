@@ -4,6 +4,8 @@ import { ClerkProvider } from '@clerk/nextjs'
 import '../styles/globals.css'
 import 'bootstrap-icons/font/bootstrap-icons.css'
 import LenisProvider from '../components/LenisProvider'
+import OnboardingGate from '../components/OnboardingGate'
+import ReduxProvider from '../components/ReduxProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 const poppins = Poppins({ 
@@ -14,10 +16,14 @@ const poppins = Poppins({
 })
 
 export const metadata: Metadata = {
-  title: 'VEDYA - AI-Powered Education Platform',
+  title: 'VEDYA – AI-Powered Education Platform',
   description: 'Personalized learning experiences powered by advanced AI technology. Built by VAYU Innovations.',
   keywords: ['education', 'ai', 'learning', 'personalized', 'vayu innovations'],
   authors: [{ name: 'VAYU Innovations' }],
+  icons: {
+    icon: '/assets/images/Logo.png',
+    apple: '/assets/images/Logo.png',
+  },
   openGraph: {
     title: 'VEDYA - AI-Powered Education Platform',
     description: 'Personalized learning experiences powered by advanced AI technology.',
@@ -40,7 +46,6 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <head>
-          <link rel="icon" href="/favicon.ico" />
           <link
             rel="preconnect"
             href="https://fonts.googleapis.com"
@@ -52,26 +57,14 @@ export default function RootLayout({
           />
         </head>
         <body className={`${inter.className} ${poppins.variable} antialiased`}>
-          <LenisProvider>
-            <div className="min-h-screen">
-              {children}
-
-              {/* VAYU Innovations Fixed Badge */}
-              <div className="fixed bottom-4 right-4 z-50">
-                <div className="group bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full px-4 py-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                  <div className="flex items-center space-x-2">
-                    <i className="bi bi-lightning-charge-fill text-vedya-purple text-sm animate-pulse"></i>
-                    <span className="text-sm font-medium text-gray-700">
-                      Powered by{' '}
-                      <span className="gradient-text font-bold">
-                        VAYU Innovations
-                      </span>
-                    </span>
-                  </div>
-                </div>
+          <ReduxProvider>
+            <LenisProvider>
+              <div className="min-h-screen">
+                {children}
+                <OnboardingGate />
               </div>
-            </div>
-          </LenisProvider>
+            </LenisProvider>
+          </ReduxProvider>
         </body>
       </html>
     </ClerkProvider>
