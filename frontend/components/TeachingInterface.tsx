@@ -831,36 +831,92 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
         />
       )}
 
-      {/* Right: Code Playground (top) + Sketchboard (bottom) — resizable */}
-      <div className="flex-1 min-w-0 min-h-0 flex flex-col">
-        <Group orientation="vertical" className="h-full flex-1 min-h-0">
-            <Panel defaultSize={50} minSize={25} className="min-h-0 flex flex-col">
-              <div className="flex flex-col flex-1 min-h-0 p-3 pt-0">
-                <div className="flex gap-1 mb-2 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setTopPanelMode('playground')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                      topPanelMode === 'playground'
-                        ? 'bg-indigo-100 text-indigo-700'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    Playground
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTopPanelMode('jupyterlite')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                      topPanelMode === 'jupyterlite'
-                        ? 'bg-indigo-100 text-indigo-700'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    JupyterLite
-                  </button>
+      {/* Middle + Right: resizable horizontal panels (AI Blackboard + Notebook / Code area) */}
+      <Group orientation="horizontal" className="flex-1 min-w-0 min-h-0" style={{ minWidth: 560 }}>
+        {/* Middle: AI Canvas (top) + Notebook/Draw.io (bottom) */}
+        <Panel defaultSize={50} minSize={25} className="min-h-0 flex flex-col">
+          <div className="flex flex-col flex-1 min-h-0">
+            <Group orientation="vertical" className="h-full flex-1 min-h-0">
+              <Panel defaultSize={50} minSize={20} className="min-h-0 flex flex-col">
+                <div className="flex flex-col flex-1 min-h-0 p-3">
+                  <div className="flex flex-col flex-1 min-h-0 bg-[#e8e0d5] rounded-xl border border-amber-700/30 shadow-inner overflow-hidden">
+                    <div className="px-3 py-2 border-b border-amber-700/30 bg-amber-900/20 flex-shrink-0">
+                      <span className="text-sm font-medium text-amber-900">AI Blackboard</span>
+                    </div>
+                    <div className="flex-1 min-h-0 flex items-center justify-center p-4">
+                      <p className="text-sm text-amber-900/80 text-center max-w-xs">
+                        A canvas where the AI teacher can draw or show animations. Diagrams and visuals appear here.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              </Panel>
+              <Separator className="h-2 shrink-0 bg-gray-200 hover:bg-indigo-200 rounded transition-colors cursor-row-resize" />
+              <Panel defaultSize={50} minSize={20} className="min-h-0 flex flex-col">
+                <div className="flex flex-col flex-1 min-h-0 p-3">
+                  <div className="flex gap-1 mb-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setRightPanelMode('notebook')}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                        rightPanelMode === 'notebook'
+                          ? 'bg-indigo-100 text-indigo-700'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Notebook
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRightPanelMode('diagram')}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                        rightPanelMode === 'diagram'
+                          ? 'bg-indigo-100 text-indigo-700'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Diagrams (Draw.io)
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 min-w-0">
+                    {rightPanelMode === 'notebook' ? <Sketchboard onSubmit={handleSketchSubmit} /> : <DrawioPanel />}
+                  </div>
+                </div>
+              </Panel>
+            </Group>
+          </div>
+        </Panel>
+
+        <Separator className="w-3 shrink-0 bg-gray-200 hover:bg-indigo-200 rounded transition-colors cursor-col-resize" />
+
+        {/* Right: Coding area (full height) */}
+        <Panel defaultSize={50} minSize={25} className="min-h-0 flex flex-col border-l border-gray-200">
+          <div className="flex flex-col flex-1 min-h-0 p-3 h-full">
+            <div className="flex gap-1 mb-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setTopPanelMode('playground')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  topPanelMode === 'playground'
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Playground
+              </button>
+              <button
+                type="button"
+                onClick={() => setTopPanelMode('jupyterlite')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  topPanelMode === 'jupyterlite'
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                JupyterLite
+              </button>
+            </div>
+            <div className="flex flex-col flex-1 min-h-0 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           {topPanelMode === 'playground' ? (
             <>
           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gray-50/80 flex-shrink-0 flex-wrap gap-2">
@@ -879,72 +935,79 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
               </select>
             </div>
           </div>
-          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div className="relative flex-1 min-h-[120px]">
-              <textarea
-                ref={playgroundCodeRef}
-                onWheel={handlePlaygroundCodeWheel}
-                value={playgroundCode}
-                onChange={(e) => setPlaygroundCode(e.target.value)}
-                className="absolute inset-0 w-full h-full p-3 font-mono text-sm border-0 border-b border-gray-200 focus:outline-none focus:ring-0 resize-none bg-gray-50/50 overflow-y-auto"
-                placeholder="# Write or paste code from the lesson..."
-                spellCheck={false}
-              />
-            </div>
-            <div className="flex items-center gap-2 px-3 py-2 border-t border-gray-200 bg-gray-50 flex-shrink-0">
-              <button
-                onClick={runPlaygroundCode}
-                disabled={playgroundRunning}
-                className="px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {playgroundRunning ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Running...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Run
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => { setPlaygroundCode(''); setPlaygroundOutput(null); }}
-                className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                Clear
-              </button>
-              <button
-                onClick={handlePlaygroundSubmitToChat}
-                disabled={isLoading}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-              >
-                Submit to chat
-              </button>
-            </div>
-            <div className="min-h-[80px] max-h-[140px] overflow-auto border-t border-gray-200 bg-gray-900 text-gray-100 font-mono text-xs p-3">
-              {playgroundOutput === null && !playgroundRunning && (
-                <div className="text-gray-500">Output appears here after you run the code.</div>
-              )}
-              {playgroundOutput !== null && (
-                <div className="space-y-1">
-                  {playgroundOutput.stdout && (
-                    <pre className="whitespace-pre-wrap break-words text-emerald-200">{playgroundOutput.stdout}</pre>
-                  )}
-                  {playgroundOutput.stderr && (
-                    <pre className="whitespace-pre-wrap break-words text-red-300">{playgroundOutput.stderr}</pre>
-                  )}
-                  {playgroundOutput.exitCode !== 0 && !playgroundOutput.stdout && !playgroundOutput.stderr && (
-                    <span className="text-amber-300">Exit code {playgroundOutput.exitCode}</span>
-                  )}
+          <Group orientation="vertical" className="flex-1 min-h-0">
+            <Panel defaultSize={70} minSize={40} className="min-h-0 flex flex-col">
+              <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="relative flex-1 min-h-[120px]">
+                  <textarea
+                    ref={playgroundCodeRef}
+                    onWheel={handlePlaygroundCodeWheel}
+                    value={playgroundCode}
+                    onChange={(e) => setPlaygroundCode(e.target.value)}
+                    className="absolute inset-0 w-full h-full p-3 font-mono text-sm border-0 border-b border-gray-200 focus:outline-none focus:ring-0 resize-none bg-gray-50/50 overflow-y-auto"
+                    placeholder="# Write or paste code from the lesson..."
+                    spellCheck={false}
+                  />
                 </div>
-              )}
-            </div>
-          </div>
+                <div className="flex items-center gap-2 px-3 py-2 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+                  <button
+                    onClick={runPlaygroundCode}
+                    disabled={playgroundRunning}
+                    className="px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {playgroundRunning ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Run
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => { setPlaygroundCode(''); setPlaygroundOutput(null); }}
+                    className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={handlePlaygroundSubmitToChat}
+                    disabled={isLoading}
+                    className="px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Submit to chat
+                  </button>
+                </div>
+              </div>
+            </Panel>
+            <Separator className="h-2 shrink-0 bg-gray-200 hover:bg-indigo-200 rounded transition-colors cursor-row-resize" />
+            <Panel defaultSize={30} minSize={20} className="min-h-0 flex flex-col">
+              <div className="flex-1 min-h-0 overflow-auto border-t border-gray-200 bg-gray-900 text-gray-100 font-mono text-xs p-3">
+                {playgroundOutput === null && !playgroundRunning && (
+                  <div className="text-gray-500">Output appears here after you run the code.</div>
+                )}
+                {playgroundOutput !== null && (
+                  <div className="space-y-1">
+                    {playgroundOutput.stdout && (
+                      <pre className="whitespace-pre-wrap break-words text-emerald-200">{playgroundOutput.stdout}</pre>
+                    )}
+                    {playgroundOutput.stderr && (
+                      <pre className="whitespace-pre-wrap break-words text-red-300">{playgroundOutput.stderr}</pre>
+                    )}
+                    {playgroundOutput.exitCode !== 0 && !playgroundOutput.stdout && !playgroundOutput.stderr && (
+                      <span className="text-amber-300">Exit code {playgroundOutput.exitCode}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Panel>
+          </Group>
             </>
           ) : topPanelMode === 'jupyterlite' ? (
           <div className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
@@ -961,45 +1024,10 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
             </div>
           </div>
           ) : null}
-        </div>
               </div>
-            </Panel>
-
-            <Separator className="h-2 shrink-0 bg-gray-200 hover:bg-indigo-200 rounded transition-colors cursor-row-resize" />
-
-            <Panel defaultSize={50} minSize={20} className="min-h-0 flex flex-col">
-              <div className="flex flex-col flex-1 min-h-0 p-3">
-                <div className="flex gap-1 mb-2 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setRightPanelMode('notebook')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                      rightPanelMode === 'notebook'
-                        ? 'bg-indigo-100 text-indigo-700'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    Notebook
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRightPanelMode('diagram')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                      rightPanelMode === 'diagram'
-                        ? 'bg-indigo-100 text-indigo-700'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    Diagrams (Draw.io)
-                  </button>
-                </div>
-                <div className="flex-1 min-h-0 min-w-0">
-                  {rightPanelMode === 'notebook' ? <Sketchboard onSubmit={handleSketchSubmit} /> : <DrawioPanel />}
-                </div>
-              </div>
-            </Panel>
-          </Group>
+            </div>
+          </Panel>
+        </Group>
       </div>
-    </div>
   )
 }
