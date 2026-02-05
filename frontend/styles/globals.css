@@ -446,3 +446,13 @@
     /* Dark mode styles will go here */
   }
 }
+
+/* AI Blackboard: image revealed as if being drawn (left to right) */
+@keyframes blackboardReveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}

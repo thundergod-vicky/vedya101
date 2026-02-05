@@ -46,6 +46,8 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
   const [playgroundRunning, setPlaygroundRunning] = useState(false)
   const [rightPanelMode, setRightPanelMode] = useState<'notebook' | 'diagram'>('notebook')
   const [topPanelMode, setTopPanelMode] = useState<'playground' | 'jupyterlite'>('playground')
+  const [blackboardImageUrl, setBlackboardImageUrl] = useState<string | null>(null)
+  const [blackboardImageKey, setBlackboardImageKey] = useState(0)
   // Voice: input (mic) and output (TTS)
   const [isListening, setIsListening] = useState(false)
   const [speechInputSupported, setSpeechInputSupported] = useState(false)
@@ -382,6 +384,10 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
           imageUrl: data.diagram_url
         }
         setTimeout(() => setMessages(prev => [...prev, visualMessage]), 500)
+      }
+      if (data.blackboard_image) {
+        setBlackboardImageUrl(data.blackboard_image)
+        setBlackboardImageKey((k) => k + 1)
       }
     } catch (error) {
       console.error('❌ Error sending message:', error)
@@ -839,14 +845,30 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
             <Group orientation="vertical" className="h-full flex-1 min-h-0">
               <Panel defaultSize={50} minSize={20} className="min-h-0 flex flex-col">
                 <div className="flex flex-col flex-1 min-h-0 p-3">
-                  <div className="flex flex-col flex-1 min-h-0 bg-[#e8e0d5] rounded-xl border border-amber-700/30 shadow-inner overflow-hidden">
-                    <div className="px-3 py-2 border-b border-amber-700/30 bg-amber-900/20 flex-shrink-0">
-                      <span className="text-sm font-medium text-amber-900">AI Blackboard</span>
+                  <div className="flex flex-col flex-1 min-h-0 bg-transparent rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-3 py-2 border-b border-gray-200 bg-gray-50/80 flex-shrink-0">
+                      <span className="text-sm font-medium text-gray-800">AI Blackboard</span>
                     </div>
-                    <div className="flex-1 min-h-0 flex items-center justify-center p-4">
-                      <p className="text-sm text-amber-900/80 text-center max-w-xs">
-                        A canvas where the AI teacher can draw or show animations. Diagrams and visuals appear here.
-                      </p>
+                    <div className={`flex-1 min-h-0 flex items-center justify-center overflow-hidden bg-transparent ${blackboardImageUrl ? 'relative p-0' : 'p-4'}`}>
+                      {blackboardImageUrl ? (
+                        <div className="absolute inset-0">
+                          <div
+                            key={blackboardImageKey}
+                            className="absolute inset-0 overflow-hidden rounded-b-xl"
+                            style={{ animation: 'blackboardReveal 2.2s ease-out forwards' }}
+                          >
+                            <img
+                              src={blackboardImageUrl}
+                              alt="Drawn on blackboard"
+                              className="w-full h-full object-cover rounded-b-xl"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 text-center max-w-xs">
+                          A canvas where the AI teacher can draw or show animations. Try: &quot;Give me image of an apple&quot;
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

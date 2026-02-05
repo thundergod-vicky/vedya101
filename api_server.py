@@ -1189,13 +1189,20 @@ async def teaching_chat(request: dict):
                 
                 print(f"✅ Teaching response generated | Visual needed: {should_generate_visual}")
                 
+                blackboard_image = None
+                if _extract_draw_subject(message):
+                    blackboard_image = await _generate_blackboard_image(message)
+                    if blackboard_image:
+                        print("✅ Blackboard image generated for draw request")
+                
                 return {
                     "success": True,
                     "response": response_text,
                     "current_concept": result.get("current_concept", current_concept) if isinstance(result, dict) else current_concept,
                     "should_generate_visual": should_generate_visual,
                     "visual_concept": result.get("current_concept", current_concept) if isinstance(result, dict) else current_concept,
-                    "visual_type": "concept_illustration"
+                    "visual_type": "concept_illustration",
+                    "blackboard_image": blackboard_image
                 }
         else:
             print("❌ Teaching assistant agent not available")
@@ -1204,6 +1211,59 @@ async def teaching_chat(request: dict):
     except Exception as e:
         print(f"Error in teaching chat: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to process teaching chat: {str(e)}")
+
+
+def _extract_draw_subject(message: str) -> Optional[str]:
+    """If the user is asking for an image/drawing of something, return the subject (e.g. 'an apple')."""
+    m = (message or "").strip().lower()
+    if not m:
+        return None
+    for phrase in ["give me image of", "give me a image of", "draw me", "draw me a", "draw a", "picture of", "image of", "show me image of", "show me a image of", "show image of", "draw ", "picture of a", "image of a"]:
+        if phrase in m:
+            idx = m.find(phrase)
+            rest = message[idx + len(phrase):].strip()
+            rest = rest.split(".")[0].split(",")[0].strip()
+            if len(rest) > 1 and len(rest) < 200:
+                return rest or None
+    if m.startswith("draw "):
+        rest = message[5:].strip().split(".")[0].split(",")[0].strip()
+        if len(rest) > 1 and len(rest) < 200:
+            return rest
+    return None
+
+
+async def _generate_blackboard_image(user_message: str) -> Optional[str]:
+    """Generate a single image for the AI blackboard via DALL·E 3 from a user request like 'draw an apple'. Returns data URL or None."""
+    subject = _extract_draw_subject(user_message)
+    if not subject:
+        return None
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key or not api_key.startswith("sk-"):
+        return None
+    prompt = f"Clear, simple drawing of {subject}. Clean lines, educational style, as if drawn on a blackboard. No text labels. Single central subject."
+    prompt = prompt[:4000]
+
+    def _call():
+        try:
+            client = openai_lib.OpenAI(api_key=api_key)
+            resp = client.images.generate(
+                model="dall-e-3",
+                prompt=prompt,
+                size="1024x1024",
+                quality="standard",
+                response_format="b64_json",
+                style="natural",
+                n=1,
+            )
+            if not resp.data or len(resp.data) == 0:
+                return None
+            b64 = getattr(resp.data[0], "b64_json", None)
+            return f"data:image/png;base64,{b64}" if b64 else None
+        except Exception as e:
+            print(f"⚠️ Blackboard image generation failed: {e}")
+            return None
+
+    return await asyncio.to_thread(_call)
 
 
 async def _generate_dalle_diagram(concept: str, subject: str, diagram_type: str) -> Optional[str]:
