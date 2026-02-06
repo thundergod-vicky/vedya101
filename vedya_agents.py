@@ -903,7 +903,56 @@ Start with a warm welcome and ask about their familiarity with {current_module} 
                 "current_concept": session_context.get('current_concept', current_module.lower().replace(' ', '_'))
             }
         
-        system_prompt = f"""You are an expert AI instructor teaching {subject}, specifically the module: {current_module}.
+        # If the user is submitting a "pointing" answer (they marked an area and want us to evaluate)
+        evaluating_pointing = session_context.get("evaluating_user_pointing") and session_context.get("pointing_question") and image_base64
+        if evaluating_pointing:
+            pointing_question = session_context.get("pointing_question", "")
+            eval_system = f"""You are evaluating the student's answer. They were asked: "{pointing_question}"
+
+They have submitted an image where they marked an area (e.g. on a map or diagram). Look at the image and determine if they pointed to the CORRECT location.
+
+- If CORRECT: Say so briefly and encouragingly (1-2 sentences). Do NOT add any BLACKBOARD_FEEDBACK line.
+- If INCORRECT: Say so briefly, tell them where the correct answer is (1-2 sentences). Then on a new line add exactly:
+BLACKBOARD_FEEDBACK: <one DALL·E prompt to show the same image with the correct location highlighted, e.g. "India map with Rajasthan state highlighted in red">"""
+            human_content = [
+                {"type": "text", "text": f"The question was: {pointing_question}. The student says: {message}. Their marked image is attached."},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
+            ]
+            try:
+                response = await self.llm.ainvoke([
+                    SystemMessage(content=eval_system),
+                    HumanMessage(content=human_content)
+                ])
+                return {
+                    "success": True,
+                    "response": response.content,
+                    "type": "text",
+                    "current_concept": session_context.get('current_concept', ''),
+                    "should_generate_visual": False,
+                    "trigger_assessment": False
+                }
+            except Exception as e:
+                print(f"Error in teaching chat (evaluate pointing): {e}")
+                return {
+                    "success": False,
+                    "response": "I had trouble checking your answer. Please try again or ask for another question.",
+                    "type": "text"
+                }
+        
+        # If the user asked for a drawing and we're showing it on the blackboard, tell the agent so it doesn't duplicate with ASCII
+        blackboard_draw = session_context.get("user_requested_blackboard_drawing") and session_context.get("blackboard_image_ready")
+        draw_subject_ctx = session_context.get("draw_subject", "")
+        
+        if blackboard_draw and draw_subject_ctx:
+            system_prompt = f"""You are a friendly AI tutor. The student asked for a drawing: "{draw_subject_ctx}".
+
+We are already displaying that drawing on the BLACKBOARD (the panel next to this chat). So:
+- Do NOT provide ASCII art, text sketches, or duplicate the drawing in the chat.
+- Reply in 1-2 short sentences: acknowledge that you've drawn it on the blackboard and invite them to look at it.
+- Stay on the student's topic. If they asked for circles and a line (or an apple, or a simple shape), do NOT pivot to neural networks or AI unless they explicitly asked about that.
+- End with one brief, relevant question if natural (e.g. "What would you like to try next?" or "Want me to draw something else?")."""
+        else:
+            system_prompt = f"""You are an expert AI instructor teaching {subject}, specifically the module: {current_module}.
 
 CONTEXT:
 - Student's Learning Style: {learning_style}
@@ -921,13 +970,14 @@ TEACHING GUIDELINES:
 8. Keep all responses under 5 sentences
 
 RESPONSE INSTRUCTIONS:
+- Respond to what the student ACTUALLY asked. If they asked about an everyday object (e.g. an apple) or a simple drawing (circles, shapes), stay on that topic. Do NOT force the conversation to neural networks or AI unless they asked for that.
 - End each response with a thoughtful question to maintain dialogue
-- Use concrete examples related to {subject}
+- Use concrete examples related to the student's current topic
 - Be encouraging and supportive
 - Don't overwhelm with information
 - NEVER present multiple concepts at once
 - NEVER use extensive numbered lists or bullet points
-- Adjust your teaching pace based on the student's responses
+- NEVER respond with ASCII art or text-based drawings when they asked for an image—we show images on the blackboard instead
 
 Remember: You are having a conversation with the student, not delivering a lecture."""
 

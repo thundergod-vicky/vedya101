@@ -6,11 +6,12 @@ FastAPI server to serve the LangGraph agent system to the frontend
 
 from fastapi import FastAPI, HTTPException, Header, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
 import asyncio
 import json
 import os
+import re
 from typing import Dict, Any, List, Optional
 import uuid
 from datetime import datetime
@@ -1129,6 +1130,7 @@ async def teaching_chat(request: dict):
         current_concept = request.get('current_concept', '')
         stream = request.get('stream', False)
         image_base64 = request.get('image_base64')  # optional: base64 image for vision (sketch/upload)
+        last_teacher_message = request.get('last_teacher_message', '')
         
         print(f"📝 Teaching chat request: '{message[:60]}...' | Stream: {stream} | Image: {bool(image_base64)}")
         
@@ -1140,6 +1142,9 @@ async def teaching_chat(request: dict):
             "difficulty": "Intermediate",
             "current_concept": current_concept
         }
+        if last_teacher_message and image_base64 and ("marked the area" in message.lower() or "is this correct" in message.lower()):
+            session_context["evaluating_user_pointing"] = True
+            session_context["pointing_question"] = last_teacher_message
         
         # Use the TeachingAssistant agent
         if agent_system and hasattr(agent_system, 'agents') and 'teaching_assistant' in agent_system.agents:
@@ -1163,6 +1168,17 @@ async def teaching_chat(request: dict):
                     }
                 )
             else:
+                # If user asked for a drawing, generate blackboard image FIRST so the agent can acknowledge it
+                draw_subject = _extract_draw_subject(message)
+                blackboard_image = None
+                if draw_subject:
+                    blackboard_image = await _generate_blackboard_image(message)
+                    if blackboard_image:
+                        print("✅ Blackboard image generated for draw request (before agent reply)")
+                    session_context["user_requested_blackboard_drawing"] = True
+                    session_context["draw_subject"] = draw_subject
+                    session_context["blackboard_image_ready"] = bool(blackboard_image)
+                
                 # For non-streaming response, process the message (returns dict with 'response' text)
                 result = await teaching_assistant.handle_teaching_chat(
                     message, session_context, image_base64=image_base64
@@ -1173,8 +1189,8 @@ async def teaching_chat(request: dict):
                 message_lower = (message or "").lower()
                 response_lower = (response_text or "").lower()
                 should_generate_visual = result.get("should_generate_visual", False) if isinstance(result, dict) else False
-                if not should_generate_visual:
-                    # User explicitly asked for a visual/diagram
+                if not should_generate_visual and not draw_subject:
+                    # User explicitly asked for a visual/diagram (and we didn't already handle it as blackboard)
                     user_asks_visual = any(phrase in message_lower for phrase in [
                         "show me a", "show a diagram", "show a visual", "can you show", "draw a", "illustrate with",
                         "show me the", "show the diagram", "show the visual", "picture of", "image of", "graph of"
@@ -1187,17 +1203,23 @@ async def teaching_chat(request: dict):
                     ])
                     should_generate_visual = user_asks_visual or response_offers_visual
                 
-                print(f"✅ Teaching response generated | Visual needed: {should_generate_visual}")
+                # If the agent returned BLACKBOARD_FEEDBACK: <prompt> (e.g. when user pointed to wrong place), generate that image
+                response_text_final = response_text
+                if "BLACKBOARD_FEEDBACK:" in response_text and not blackboard_image:
+                    match = re.search(r"BLACKBOARD_FEEDBACK:\s*(.+?)(?:\n|$)", response_text, re.DOTALL)
+                    if match:
+                        feedback_prompt = match.group(1).strip()
+                        feedback_image = await _generate_blackboard_image_from_prompt(feedback_prompt)
+                        if feedback_image:
+                            blackboard_image = feedback_image
+                            print("✅ Blackboard feedback image generated (correct location highlighted)")
+                        response_text_final = re.sub(r"\n?BLACKBOARD_FEEDBACK:\s*.+", "", response_text, flags=re.DOTALL).strip()
                 
-                blackboard_image = None
-                if _extract_draw_subject(message):
-                    blackboard_image = await _generate_blackboard_image(message)
-                    if blackboard_image:
-                        print("✅ Blackboard image generated for draw request")
+                print(f"✅ Teaching response generated | Visual needed: {should_generate_visual} | Blackboard: {bool(blackboard_image)}")
                 
                 return {
                     "success": True,
-                    "response": response_text,
+                    "response": response_text_final,
                     "current_concept": result.get("current_concept", current_concept) if isinstance(result, dict) else current_concept,
                     "should_generate_visual": should_generate_visual,
                     "visual_concept": result.get("current_concept", current_concept) if isinstance(result, dict) else current_concept,
@@ -1213,12 +1235,44 @@ async def teaching_chat(request: dict):
         raise HTTPException(status_code=500, detail=f"Failed to process teaching chat: {str(e)}")
 
 
+@app.post("/teaching/tts")
+async def teaching_tts(request: dict):
+    """Convert text to speech using OpenAI TTS. Returns audio/mpeg."""
+    try:
+        text = (request.get("text") or "").strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="Missing 'text'")
+        text = text[:4096]  # API limit
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=503, detail="OpenAI API key not configured")
+        client = openai_lib.OpenAI(api_key=api_key)
+        resp = client.audio.speech.create(
+            model="tts-1",
+            voice="nova",
+            input=text,
+        )
+        return Response(content=resp.content, media_type="audio/mpeg")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in TTS: {e}")
+        raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
+
+
 def _extract_draw_subject(message: str) -> Optional[str]:
     """If the user is asking for an image/drawing of something, return the subject (e.g. 'an apple')."""
     m = (message or "").strip().lower()
     if not m:
         return None
-    for phrase in ["give me image of", "give me a image of", "draw me", "draw me a", "draw a", "picture of", "image of", "show me image of", "show me a image of", "show image of", "draw ", "picture of a", "image of a"]:
+    for phrase in [
+        "give me image of", "give me a image of",
+        "can you draw", "draw me", "draw me a", "draw a", "draw ",
+        "picture of", "image of",
+        "show me image of", "show me a image of", "show image of",
+        "show me a diagram of", "show me diagram of", "diagram of",
+        "picture of a", "image of a"
+    ]:
         if phrase in m:
             idx = m.find(phrase)
             rest = message[idx + len(phrase):].strip()
@@ -1261,6 +1315,38 @@ async def _generate_blackboard_image(user_message: str) -> Optional[str]:
             return f"data:image/png;base64,{b64}" if b64 else None
         except Exception as e:
             print(f"⚠️ Blackboard image generation failed: {e}")
+            return None
+
+    return await asyncio.to_thread(_call)
+
+
+async def _generate_blackboard_image_from_prompt(raw_prompt: str) -> Optional[str]:
+    """Generate a blackboard image from an exact DALL·E prompt (e.g. for feedback/highlight). Returns data URL or None."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key or not api_key.startswith("sk-"):
+        return None
+    prompt = (raw_prompt or "").strip()[:4000]
+    if not prompt:
+        return None
+
+    def _call():
+        try:
+            client = openai_lib.OpenAI(api_key=api_key)
+            resp = client.images.generate(
+                model="dall-e-3",
+                prompt=prompt,
+                size="1024x1024",
+                quality="standard",
+                response_format="b64_json",
+                style="natural",
+                n=1,
+            )
+            if not resp.data or len(resp.data) == 0:
+                return None
+            b64 = getattr(resp.data[0], "b64_json", None)
+            return f"data:image/png;base64,{b64}" if b64 else None
+        except Exception as e:
+            print(f"⚠️ Blackboard feedback image failed: {e}")
             return None
 
     return await asyncio.to_thread(_call)

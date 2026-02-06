@@ -8,9 +8,11 @@ const STROKE_COLORS = ['#4f46e5', '#7c3aed', '#1f2937', '#dc2626', '#059669', '#
 interface SketchboardProps {
   /** When provided, a Submit button is shown that exports the canvas as PNG and calls this with the data URL */
   onSubmit?: (imageDataUrl: string) => void
+  /** Optional background image (e.g. blackboard image) to draw on top of; export will include it */
+  backgroundImage?: string | null
 }
 
-export default function Sketchboard({ onSubmit }: SketchboardProps) {
+export default function Sketchboard({ onSubmit, backgroundImage }: SketchboardProps) {
   const canvasRef = useRef<ReactSketchCanvasRef>(null)
   const [strokeWidth, setStrokeWidth] = useState(4)
   const [strokeColor, setStrokeColor] = useState(STROKE_COLORS[0])
@@ -122,6 +124,8 @@ export default function Sketchboard({ onSubmit }: SketchboardProps) {
           strokeWidth={strokeWidth}
           strokeColor={strokeColor}
           canvasColor="transparent"
+          backgroundImage={backgroundImage || ''}
+          exportWithBackgroundImage={Boolean(backgroundImage)}
           style={{ width: '100%', height: '100%', border: 'none' }}
           className="absolute inset-0 w-full h-full"
         />

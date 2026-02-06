@@ -24,6 +24,7 @@ export const API_ENDPOINTS = {
   // Teaching
   teachingStart: `${API_BASE_URL}/teaching/start`,
   teachingChat: `${API_BASE_URL}/teaching/chat`,
+  teachingTts: `${API_BASE_URL}/teaching/tts`,
   teachingDiagram: `${API_BASE_URL}/teaching/generate-diagram`,
   executeCode: `${API_BASE_URL}/teaching/execute-code`,
 

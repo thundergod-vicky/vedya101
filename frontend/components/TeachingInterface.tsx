@@ -6,6 +6,7 @@ import { Group, Panel, Separator } from 'react-resizable-panels'
 import { API_ENDPOINTS } from '../lib/api-config'
 import Sketchboard from './Sketchboard'
 import DrawioPanel from './DrawioPanel'
+import VoiceTeacherPanel from './VoiceTeacherPanel'
 
 const CHAT_WIDTH_DEFAULT_PX = 380
 const CHAT_WIDTH_MIN_PX = 280
@@ -48,11 +49,16 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
   const [topPanelMode, setTopPanelMode] = useState<'playground' | 'jupyterlite'>('playground')
   const [blackboardImageUrl, setBlackboardImageUrl] = useState<string | null>(null)
   const [blackboardImageKey, setBlackboardImageKey] = useState(0)
+  /** When the AI asks to "point to" / "mark" on the blackboard, we put that image here so the user can draw on it in the Notebook */
+  const [notebookBackgroundImageUrl, setNotebookBackgroundImageUrl] = useState<string | null>(null)
+  const [showMiddleSection, setShowMiddleSection] = useState(true)
+  const [showRightSection, setShowRightSection] = useState(true)
   // Voice: input (mic) and output (TTS)
   const [isListening, setIsListening] = useState(false)
   const [speechInputSupported, setSpeechInputSupported] = useState(false)
   const [ttsSupported, setTtsSupported] = useState(false)
   const [voiceReplyEnabled, setVoiceReplyEnabled] = useState(false)
+  const [voiceTeacherMode, setVoiceTeacherMode] = useState(false)
   const recognitionRef = useRef<{ stop: () => void } | null>(null)
   // Chat width in pixels when expanded; guarantees visible width and drag resize
   const [chatWidthPx, setChatWidthPx] = useState(CHAT_WIDTH_DEFAULT_PX)
@@ -318,7 +324,7 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
     }
   }
 
-  const sendMessage = async (raw: string, imageDataUrl?: string) => {
+  const sendMessage = async (raw: string, imageDataUrl?: string, lastTeacherMessage?: string) => {
     const currentInput = raw.trim()
     if (!currentInput && !imageDataUrl) return
 
@@ -346,6 +352,7 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
         const base64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, '')
         body.image_base64 = base64
       }
+      if (lastTeacherMessage) body.last_teacher_message = lastTeacherMessage
       const response = await fetch(API_ENDPOINTS.teachingChat, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -388,6 +395,17 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
       if (data.blackboard_image) {
         setBlackboardImageUrl(data.blackboard_image)
         setBlackboardImageKey((k) => k + 1)
+        const responseLower = (data.response || '').toLowerCase()
+        const asksToInteract = [
+          'point to', 'point out', 'mark ', 'circle ', 'show me where', 'can you point',
+          'indicate where', 'where is ', 'locate ', 'point to the', 'identify the'
+        ].some(phrase => responseLower.includes(phrase))
+        if (asksToInteract) {
+          setNotebookBackgroundImageUrl(data.blackboard_image)
+          setRightPanelMode('notebook')
+        } else {
+          setNotebookBackgroundImageUrl(null)
+        }
       }
     } catch (error) {
       console.error('❌ Error sending message:', error)
@@ -415,7 +433,11 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
   }
 
   const handleSketchSubmit = (imageDataUrl: string) => {
-    sendMessage("I'm sharing my notebook sketch. What do you think?", imageDataUrl)
+    const caption = notebookBackgroundImageUrl
+      ? "I've marked the area you asked about on the image. Is this correct?"
+      : "I'm sharing my notebook sketch. What do you think?"
+    const lastTeacher = messages.slice().reverse().find(m => m.sender === 'teacher')?.content
+    sendMessage(caption, imageDataUrl, notebookBackgroundImageUrl ? lastTeacher : undefined)
   }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -678,15 +700,110 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
 
   return (
     <div ref={containerRef} className="h-full min-h-0 w-full flex bg-white/80 border border-gray-200/80 rounded-t-xl overflow-hidden shadow-sm">
-      {/* Left: Chat — pixel width so it always starts visible (380px), resizable 280–600px */}
+      {/* Leftmost: icon sidebar — toggle Blackboard & Notebook / Code area */}
+      <div className="flex flex-col items-center py-3 gap-3 w-12 flex-shrink-0 border-r border-gray-200 bg-gray-50/90">
+        <button
+          type="button"
+          onClick={() => setShowMiddleSection((s) => !s)}
+          className={`p-2 rounded-lg transition-colors ${
+            showMiddleSection ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+          }`}
+          title={showMiddleSection ? 'Hide Blackboard & Notebook' : 'Show Blackboard & Notebook'}
+        >
+          {showMiddleSection ? (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowRightSection((s) => !s)}
+          className={`p-2 rounded-lg transition-colors ${
+            showRightSection ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+          }`}
+          title={showRightSection ? 'Hide Code area' : 'Show Code area'}
+        >
+          {showRightSection ? (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setChatCollapsed((c) => { if (!c) setVoiceTeacherMode(false); return !c; })}
+          className={`p-2 rounded-lg transition-colors ${
+            chatCollapsed ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+          }`}
+          title={chatCollapsed ? 'Show chat' : 'Hide chat'}
+        >
+          {chatCollapsed ? (
+            // Chat bubble with plus (show)
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M8 10h4m-2-2v4" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M5 5h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-5l-4 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          ) : (
+            // Simple chat bubble (hide)
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M7 9h10M7 13h6" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M5 5h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-5l-4 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
+      </div>
+      {/* Chat — pixel width so it always starts visible (380px), resizable 280–600px */}
       <div
         className="flex flex-col bg-gray-50/90 border-r border-gray-200 min-h-0 overflow-hidden flex-shrink-0"
         style={{
-          width: chatCollapsed ? CHAT_COLLAPSED_WIDTH_PX : chatWidthPx,
-          minWidth: chatCollapsed ? CHAT_COLLAPSED_WIDTH_PX : CHAT_WIDTH_MIN_PX,
-          maxWidth: chatCollapsed ? CHAT_COLLAPSED_WIDTH_PX : CHAT_WIDTH_MAX_PX,
+          width: chatCollapsed && !voiceTeacherMode ? CHAT_COLLAPSED_WIDTH_PX : chatWidthPx,
+          minWidth: chatCollapsed && !voiceTeacherMode ? CHAT_COLLAPSED_WIDTH_PX : CHAT_WIDTH_MIN_PX,
+          maxWidth: chatCollapsed && !voiceTeacherMode ? CHAT_COLLAPSED_WIDTH_PX : CHAT_WIDTH_MAX_PX,
         }}
       >
+        {voiceTeacherMode ? (
+          <VoiceTeacherPanel
+            onClose={() => setVoiceTeacherMode(false)}
+            planId={planId}
+            moduleId={moduleId}
+            currentConcept={currentConcept}
+            setCurrentConcept={setCurrentConcept}
+            initialGreeting={messages.filter((m) => m.sender === 'teacher').slice(-1)[0]?.content}
+            onVoiceExchange={({ userText, teacherText, nextConcept, blackboardImage, shouldGenerateVisual, visualConcept, visualType }) => {
+              const uid = Date.now().toString()
+              setMessages((prev) => [
+                ...prev,
+                { id: uid, content: userText, sender: 'user', timestamp: new Date(), type: 'text' },
+                { id: uid + 'r', content: teacherText, sender: 'teacher', timestamp: new Date(), type: 'text' },
+              ])
+              if (nextConcept) setCurrentConcept(nextConcept)
+
+              if (shouldGenerateVisual) {
+                const conceptToVisualize = visualConcept || nextConcept || currentConcept
+                const vt = visualType || 'concept_illustration'
+                setTimeout(() => generateSupervisedVisual(conceptToVisualize, vt), 800)
+              }
+
+              if (blackboardImage) {
+                setBlackboardImageUrl(blackboardImage)
+                setBlackboardImageKey((k) => k + 1)
+                const responseLower = (teacherText || '').toLowerCase()
+                const asksToInteract = [
+                  'point to', 'point out', 'mark ', 'circle ', 'show me where', 'can you point',
+                  'indicate where', 'where is ', 'locate ', 'point to the', 'identify the'
+                ].some((phrase) => responseLower.includes(phrase))
+                if (asksToInteract) {
+                  setNotebookBackgroundImageUrl(blackboardImage)
+                  setRightPanelMode('notebook')
+                } else {
+                  setNotebookBackgroundImageUrl(null)
+                }
+              }
+            }}
+          />
+        ) : (
+        <>
         {/* Chat header: collapse toggle + title when expanded */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 bg-white/80 flex-shrink-0">
           <button
@@ -713,13 +830,11 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
               {ttsSupported && (
                 <button
                   type="button"
-                  onClick={() => setVoiceReplyEnabled((v) => !v)}
-                  className={`px-2 py-1 text-xs rounded-lg border transition-colors flex-shrink-0 ${
-                    voiceReplyEnabled ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-300 text-gray-600 hover:bg-gray-100'
-                  }`}
-                  title={voiceReplyEnabled ? 'AI voice on' : 'AI voice off'}
+                  onClick={() => { setChatCollapsed(false); setVoiceTeacherMode(true); }}
+                  className="px-2 py-1 text-xs rounded-lg border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors flex-shrink-0"
+                  title="Open voice teacher — talk with the AI"
                 >
-                  Voice
+                  Voice Teacher
                 </button>
               )}
             </>
@@ -824,6 +939,8 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
             </div>
           </>
         )}
+        </>
+        )}
       </div>
 
       {/* Resize handle: only when chat is expanded */}
@@ -837,10 +954,13 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
         />
       )}
 
-      {/* Middle + Right: resizable horizontal panels (AI Blackboard + Notebook / Code area) */}
-      <Group orientation="horizontal" className="flex-1 min-w-0 min-h-0" style={{ minWidth: 560 }}>
-        {/* Middle: AI Canvas (top) + Notebook/Draw.io (bottom) */}
-        <Panel defaultSize={50} minSize={25} className="min-h-0 flex flex-col">
+      {/* Middle + Right: collapsible sections (toggled from leftmost sidebar) */}
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+        {(showMiddleSection || showRightSection) ? (
+      <Group orientation="horizontal" className="flex-1 min-w-0 min-h-0" style={{ minWidth: showMiddleSection && showRightSection ? 560 : 280 }}>
+        {showMiddleSection && (
+        <>
+        <Panel defaultSize={showRightSection ? 50 : 100} minSize={25} className="min-h-0 flex flex-col">
           <div className="flex flex-col flex-1 min-h-0">
             <Group orientation="vertical" className="h-full flex-1 min-h-0">
               <Panel defaultSize={50} minSize={20} className="min-h-0 flex flex-col">
@@ -901,18 +1021,29 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
                     </button>
                   </div>
                   <div className="flex-1 min-h-0 min-w-0">
-                    {rightPanelMode === 'notebook' ? <Sketchboard onSubmit={handleSketchSubmit} /> : <DrawioPanel />}
+                    {rightPanelMode === 'notebook' ? (
+                    <Sketchboard
+                      key={notebookBackgroundImageUrl ?? 'no-bg'}
+                      onSubmit={handleSketchSubmit}
+                      backgroundImage={notebookBackgroundImageUrl}
+                    />
+                  ) : (
+                    <DrawioPanel />
+                  )}
                   </div>
                 </div>
               </Panel>
             </Group>
           </div>
         </Panel>
-
+        </>
+        )}
+        {showRightSection && (
+        <>
         <Separator className="w-3 shrink-0 bg-gray-200 hover:bg-indigo-200 rounded transition-colors cursor-col-resize" />
 
         {/* Right: Coding area (full height) */}
-        <Panel defaultSize={50} minSize={25} className="min-h-0 flex flex-col border-l border-gray-200">
+        <Panel defaultSize={showMiddleSection ? 50 : 100} minSize={25} className="min-h-0 flex flex-col border-l border-gray-200">
           <div className="flex flex-col flex-1 min-h-0 p-3 h-full">
             <div className="flex gap-1 mb-2 flex-shrink-0">
               <button
@@ -1046,10 +1177,18 @@ export default function TeachingInterface({ planId, moduleId }: TeachingInterfac
             </div>
           </div>
           ) : null}
-              </div>
             </div>
-          </Panel>
-        </Group>
+          </div>
+        </Panel>
+        </>
+        )}
+      </Group>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-500 min-h-0">
+            Show a section using the buttons above.
+          </div>
+        )}
       </div>
+    </div>
   )
 }
